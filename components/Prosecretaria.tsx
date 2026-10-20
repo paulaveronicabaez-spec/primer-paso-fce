@@ -1,33 +1,45 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Ctx } from "@/lib/ctx";
-import { MOTIVOS_DESCARTE, PROSEC_MAIL, convenioVigente, cupoPasantes, edadDe, fmt, fmtHora, mensajeError, pNom, vacantesUsadas } from "@/lib/reglas";
+import { ESTADOS_BUSQUEDA, MOTIVOS_DESCARTE, PROSEC_MAIL, estadoBusqueda, convenioVigente, cupoPasantes, edadDe, fmt, fmtHora, mensajeError, pNom, vacantesUsadas } from "@/lib/reglas";
 import * as api from "@/lib/api";
 import { Notice } from "./ui";
+import { ResultadoCell } from "./Organizacion";
 
 export function Tablero({ c }: { c: Ctx }) {
   const { datos } = c;
   const P = datos.postulaciones;
+  const [filtro, setFiltro] = useState("");
   const unread = datos.correos.filter((m) => !m.leido).length;
-  const pend = datos.estudiantes.filter((e) => e.academico_actualizado && !e.avance_verificado).length;
+  const pendVerif = datos.estudiantes.filter((e) => e.academico_actualizado && !e.avance_verificado).length;
   const org = (id: string) => datos.organizaciones.find((o) => o.id === id);
+  const bs = datos.busquedas.map((b) => ({ b, s: estadoBusqueda(b, P) }));
+  const shown = filtro ? bs.filter((x) => x.s.k === filtro) : bs;
   return (
     <>
-      <section style={{ display: "grid", gap: 6 }}><span className="eyebrow">Prosecretaría de Inserción Laboral</span><h1>Tablero</h1><p className="lead">Las novedades te llegan por correo: altas de organizaciones y búsquedas publicadas.</p></section>
+      <section style={{ display: "grid", gap: 6 }}><span className="eyebrow">Prosecretaría de Inserción Laboral</span><h1>Tablero</h1><p className="lead">Seguí cada búsqueda desde que se publica hasta que la organización informa a quién eligió.</p></section>
       {unread ? <Notice tipo="new"><span><b>{unread === 1 ? "Tenés 1 correo nuevo" : `Tenés ${unread} correos nuevos`}.</b> <button className="linkbtn" type="button" onClick={() => c.ir("correos")}>Ver correos</button></span></Notice> : null}
-      {pend ? <Notice tipo="warn"><span><b>{pend === 1 ? "1 estudiante" : `${pend} estudiantes`}</b> con el avance pendiente de verificar con SIU Guaraní. <button className="linkbtn" type="button" onClick={() => c.ir("verif")}>Verificar</button></span></Notice> : null}
+      {pendVerif ? <Notice tipo="warn"><span><b>{pendVerif === 1 ? "1 estudiante" : `${pendVerif} estudiantes`}</b> con el avance pendiente de verificar con SIU Guaraní. <button className="linkbtn" type="button" onClick={() => c.ir("verif")}>Verificar</button></span></Notice> : null}
       <div className="kpis">
         <div className="panel"><span className="eyebrow">Búsquedas publicadas</span><b>{datos.busquedas.filter((b) => b.estado === "publicada").length}</b></div>
-        <div className="panel"><span className="eyebrow">Organizaciones</span><b>{datos.organizaciones.length}</b></div>
-        <div className="panel"><span className="eyebrow">Estudiantes registrados</span><b>{datos.estudiantes.length}</b></div>
         <div className="panel"><span className="eyebrow">Postulaciones</span><b>{P.length}</b></div>
         <div className="panel"><span className="eyebrow">Cumplen requisitos</span><b>{P.filter((p) => p.cumple_requisitos).length}</b></div>
+        <div className="panel"><span className="eyebrow">Enviadas a organizaciones</span><b>{P.filter((p) => p.enviada).length}</b></div>
+        <div className="panel"><span className="eyebrow">Estudiantes seleccionados</span><b>{P.filter((p) => p.resultado === "seleccionado").length}</b></div>
       </div>
-      <section className="panel"><h2>Búsquedas</h2><div className="table-wrap"><table><thead><tr><th>Puesto</th><th>Organización</th><th>Publicada</th><th>Postulaciones</th><th>Cumplen</th><th>Enviadas</th></tr></thead><tbody>
-        {datos.busquedas.map((b) => { const ps = P.filter((p) => p.busqueda_id === b.id); return (
-          <tr key={b.id}><td><strong>{b.titulo}</strong><div className="mut" style={{ fontSize: ".8rem" }}>{b.tipo === "pasantia" ? "Pasantía" : "Empleo"} · {b.carrera}</div></td><td>{org(b.organizacion_id)?.nombre}</td><td className="num">{fmt(b.created_at)}</td><td className="num">{ps.length}</td><td className="num">{ps.filter((p) => p.cumple_requisitos).length}</td><td className="num">{ps.filter((p) => p.enviada).length}</td></tr>); })}
-      </tbody></table></div></section>
-      <p className="hint mut">Para revisar y enviar postulantes, entrá a «Evaluar postulaciones». Registrar la selección (HU6) queda para el Sprint 3.</p>
+      <section className="panel" style={{ display: "grid", gap: 12 }}><div className="sec-head"><h2>Seguimiento de búsquedas</h2><small className="mut">Empleos y pasantías</small></div>
+        <div className="segchips">{([["", "Todas", bs.length]] as [string, string, number][]).concat(ESTADOS_BUSQUEDA.map(([k, l]) => [k, l, bs.filter((x) => x.s.k === k).length] as [string, string, number])).map(([k, l, n]) => (
+          <button key={k || "todas"} type="button" className={`segc${filtro === k ? " on" : ""}`} onClick={() => setFiltro(k)}>{l} <span className="num">{n}</span></button>))}</div>
+        <div className="table-wrap"><table><thead><tr><th>Búsqueda</th><th>Publicada</th><th>Recorrido</th><th>Estado</th><th></th></tr></thead><tbody>
+          {shown.length ? shown.map(({ b, s }) => { const e = ESTADOS_BUSQUEDA.find((x) => x[0] === s.k)!; return (
+            <tr key={b.id}><td><strong>{b.titulo}</strong><div className="mut" style={{ fontSize: ".8rem" }}>{org(b.organizacion_id)?.nombre} · {b.tipo === "pasantia" ? "Pasantía" : "Empleo"} · {b.vacantes} vacante(s)</div></td>
+              <td className="num nw">{fmt(b.created_at)}</td>
+              <td><ol className="pipe"><li className={s.ps ? "done" : ""}><b className="num">{s.ps}</b> postulaciones</li><li className={s.pend ? "cur" : s.env ? "done" : ""}><b className="num">{s.pend}</b> pendientes de envío</li><li className={s.env ? (s.sinRes ? "cur" : "done") : ""}><b className="num">{s.env}</b> enviadas</li><li className={s.sel ? "done" : ""}><b className="num">{s.sel}</b> seleccionados</li></ol></td>
+              <td><span className={`tag ${e[2]}`}>{e[1]}</span></td>
+              <td>{s.pend ? <button className="linkbtn" type="button" onClick={() => c.ir("evaluar")}>Evaluar</button> : null}</td></tr>); })
+            : <tr><td colSpan={5} className="empty">No hay búsquedas en este estado.</td></tr>}
+        </tbody></table></div></section>
+      <p className="hint mut">La organización registra a quién seleccionó desde su usuario. Si lo informa por otro medio, la Prosecretaría puede registrarlo en «Evaluar postulaciones».</p>
     </>
   );
 }
@@ -136,7 +148,7 @@ export function Evaluar({ c }: { c: Ctx }) {
                   <td>{p.cumple_requisitos ? <span className="tag ok">Cumple</span> : <><span className="tag no">No cumple</span><div className="mut" style={{ fontSize: ".8rem" }}>{p.motivos.join(" · ")}</div></>}</td>
                   <td className="num">{a != null ? a + "%" : "—"}</td>
                   <td>{e?.avance}% {e?.avance_verificado ? <span className="tag ok">Verificado</span> : <span className="tag warn">Sin verificar</span>}</td>
-                  <td>{p.enviada ? <span className="tag acc">Enviada el {fmt(p.enviada_at)}</span>
+                  <td>{p.enviada ? <><span className="tag acc">Enviada el {fmt(p.enviada_at)}</span><div style={{ marginTop: 6 }}><ResultadoCell c={c} p={p} /></div></>
                     : p.descartada ? <><span className="tag no">No enviada</span><div className="mut" style={{ fontSize: ".8rem" }}>{p.motivo_descarte}</div></>
                       : !p.cumple_requisitos ? <span className="mut" style={{ fontSize: ".85rem" }}>No se envía (no cumple)</span>
                         : <div className="evalz">
@@ -148,7 +160,7 @@ export function Evaluar({ c }: { c: Ctx }) {
             </tbody></table></div>
           </section>);
       }) : <p className="empty">Todavía no hay postulaciones.</p>}
-      <p className="hint mut">Al enviar, la organización ve el perfil completo del estudiante. El registro de la selección por parte de la organización (HU6) llega en el Sprint 3.</p>
+      <p className="hint mut">Al enviar, la organización ve el perfil completo del estudiante. La organización registra a quién seleccionó; si lo informa por otro medio, podés registrarlo acá.</p>
     </>
   );
 }

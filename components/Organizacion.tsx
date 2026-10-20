@@ -1,13 +1,27 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import type { Ctx } from "@/lib/ctx";
-import type { Estudiante, Organizacion } from "@/lib/tipos";
+import type { Estudiante, Organizacion, Postulacion } from "@/lib/tipos";
 import {
   CARRERAS, COMPETENCIAS, MODALIDADES, PERFIL, RIASEC, controlesLey, pNom, convenioVigente, edadDe, fmt, mensajeError,
   perfilDesact, ultimaAct, vacantesUsadas, validarBusqueda, type FormBusqueda,
 } from "@/lib/reglas";
 import * as api from "@/lib/api";
 import { Err, Field, Notice } from "./ui";
+
+/* HU6 · Registrar la selección (organización o Prosecretaría) */
+export function ResultadoCell({ c, p }: { c: Ctx; p: Postulacion }) {
+  const [enProceso, setEnProceso] = useState(false);
+  if (!p.enviada) return <span className="mut" style={{ fontSize: ".82rem" }}>{p.descartada ? "No enviada" : "—"}</span>;
+  if (p.resultado) return <><span className={`tag ${p.resultado === "seleccionado" ? "ok" : "no"}`}>{p.resultado === "seleccionado" ? "Seleccionado/a" : "No seleccionado/a"}</span><div className="mut" style={{ fontSize: ".78rem" }}>{fmt(p.resultado_at)}</div></>;
+  async function registrar(r: "seleccionado" | "no seleccionado") {
+    setEnProceso(true);
+    try { await api.registrarResultado(p.id, r); const y = window.scrollY; await c.recargar(); window.scrollTo(0, y); c.aviso("Resultado registrado · avisamos a la Prosecretaría"); }
+    catch (x) { c.aviso(mensajeError(x)); }
+    setEnProceso(false);
+  }
+  return <div className="evalz"><button className="btn" type="button" disabled={enProceso} onClick={() => registrar("seleccionado")}>Seleccionado/a</button><button className="btn ghost" type="button" disabled={enProceso} onClick={() => registrar("no seleccionado")}>No seleccionado/a</button></div>;
+}
 
 const miOrg = (c: Ctx) => c.datos.organizaciones.find((o) => o.id === c.sesion?.ref) as Organizacion;
 
@@ -45,7 +59,7 @@ export function OrgBusquedas({ c }: { c: Ctx }) {
           <section className="panel" style={{ display: "grid", gap: 10 }} key={b.id}>
             <div className="job-head"><div><div className="job-title">{b.titulo}</div><div className="job-org">Publicada el {fmt(b.created_at)} · {b.modalidad}</div></div><span className="tag acc num">{ps.length} {ps.length === 1 ? "postulación" : "postulaciones"}</span></div>
             <div className="chips"><span className="chip">{b.tipo === "pasantia" ? "Pasantía" : "Empleo"}</span><span className="chip">{b.carrera}</span><span className="chip num">Avance {b.avance_minimo}%</span><span className="tag ia">{pNom(b.area_riasec)}</span><span className="chip num">{ok} cumplen</span><span className="chip num">{env} enviadas por la Prosecretaría</span></div>
-            {ps.length ? <div className="table-wrap"><table><thead><tr><th>Postulante</th><th>Fecha</th><th>Clasificación</th><th>Afinidad</th><th>Perfil del estudiante</th></tr></thead><tbody>
+            {ps.length ? <div className="table-wrap"><table><thead><tr><th>Postulante</th><th>Fecha</th><th>Clasificación</th><th>Afinidad</th><th>Perfil del estudiante</th><th>Resultado</th></tr></thead><tbody>
               {ps.map((p, i) => {
                 const e = c.datos.estudiantes.find((x) => x.id === p.estudiante_id);
                 const a = c.datos.afinidades[p.id];
@@ -53,12 +67,12 @@ export function OrgBusquedas({ c }: { c: Ctx }) {
                   <tr key={p.id}><td className="nw"><strong>Postulante {i + 1}</strong></td><td className="num nw">{fmt(p.created_at)}</td>
                     <td className="nw">{p.cumple_requisitos ? <span className="tag ok">Cumple requisitos</span> : <span className="tag no">No cumple requisitos</span>}</td>
                     <td className="num nw">{a != null ? a + "%" : "—"}</td>
-                    <td>{p.enviada && e ? <PerfilCard e={e} /> : <><span className="lock">🔒 Reservado</span><div className="mut" style={{ fontSize: ".82rem" }}>Disponible cuando la Prosecretaría envíe los postulantes.</div></>}</td></tr>);
+                    <td>{p.enviada && e ? <PerfilCard e={e} /> : <><span className="lock">🔒 Reservado</span><div className="mut" style={{ fontSize: ".82rem" }}>Disponible cuando la Prosecretaría envíe los postulantes.</div></>}</td><td><ResultadoCell c={c} p={p} /></td></tr>);
               })}
             </tbody></table></div> : <p className="empty">Todavía no hay postulaciones para esta búsqueda.</p>}
           </section>);
       }) : <p className="empty">Todavía no publicaste búsquedas. <button className="linkbtn" type="button" onClick={() => c.ir("org")}>Publicar la primera</button></p>}
-      <p className="hint mut">La afinidad la calcula la base cruzando las competencias y el área buscadas con el test de BrOD de cada postulante, sin mostrarte su perfil. La Prosecretaría evalúa cada postulación y te envía las aprobadas: ahí ves el perfil completo. El registro de la selección (HU6) llega en el Sprint 3.</p>
+      <p className="hint mut">La afinidad la calcula la base cruzando las competencias y el área buscadas con el test de BrOD de cada postulante, sin mostrarte su perfil. La Prosecretaría evalúa cada postulación y te envía las aprobadas: ahí ves el perfil completo. Cuando decidas, registrá el resultado: la Prosecretaría recibe el aviso.</p>
     </>
   );
 }

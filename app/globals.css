@@ -303,3 +303,11 @@ legend{font-weight:600}
 .evalz{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .evalz select{border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:var(--surface);color:var(--fg);max-width:200px}
 .evalz .btn{padding:7px 12px;font-size:.85rem}
+.segchips{display:flex;gap:6px;flex-wrap:wrap}
+.segc{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 12px;font-size:.84rem;cursor:pointer;font-weight:600}
+.segc .num{color:var(--muted);margin-left:4px}
+.segc.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}.segc.on .num{color:inherit}
+.pipe{list-style:none;margin:0;padding:0;display:flex;gap:4px;flex-wrap:wrap}
+.pipe li{font-size:.78rem;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:3px 8px;white-space:nowrap}
+.pipe li.done{background:var(--ok-soft);border-color:transparent;color:var(--fg)}
+.pipe li.cur{background:var(--warn-soft);border-color:var(--warn);color:var(--fg)}

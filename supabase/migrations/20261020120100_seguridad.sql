@@ -106,6 +106,11 @@ create policy pos_select on public.postulaciones for select to authenticated
     or es_prosecretaria()
     or busqueda_id in (select id from busquedas where organizacion_id = mi_org_id())
   );
+-- HU6: la organización registra el resultado de las postulaciones que recibió
+drop policy if exists pos_update_org on public.postulaciones;
+create policy pos_update_org on public.postulaciones for update to authenticated
+  using (enviada and busqueda_id in (select id from busquedas where organizacion_id = mi_org_id()))
+  with check (enviada and busqueda_id in (select id from busquedas where organizacion_id = mi_org_id()));
 drop policy if exists pos_update_pro on public.postulaciones;
 create policy pos_update_pro on public.postulaciones for update to authenticated
   using (es_prosecretaria()) with check (es_prosecretaria());
@@ -127,6 +132,14 @@ grant select, update on public.postulaciones, public.correos to authenticated;
 create or replace function public.fecha_envio()
 returns trigger language plpgsql as $$
 begin
+  -- La organización solo puede cambiar el resultado
+  if not es_prosecretaria() then
+    new.enviada := old.enviada; new.enviada_at := old.enviada_at;
+    new.descartada := old.descartada; new.motivo_descarte := old.motivo_descarte;
+    new.cumple_requisitos := old.cumple_requisitos; new.motivos := old.motivos; new.estado := old.estado;
+  end if;
+  if new.resultado is distinct from old.resultado then new.resultado_at := case when new.resultado is null then null else now() end; end if;
+  if new.resultado is not null and not new.enviada then raise exception 'NO_ENVIADA: Solo se registra el resultado de postulaciones enviadas.'; end if;
   if new.enviada and not old.enviada then new.enviada_at := now(); new.descartada := false; end if;
   if new.enviada and not old.cumple_requisitos then raise exception 'NO_CUMPLE: Solo se envían las postulaciones que cumplen requisitos.'; end if;
   return new;

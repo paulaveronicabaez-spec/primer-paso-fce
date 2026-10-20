@@ -120,6 +120,12 @@ export async function descartarPostulacion(id: string, motivo: string) {
   return check<Postulacion>(r);
 }
 
+/** HU6: la organización (o la Prosecretaría) registra si el estudiante fue seleccionado. */
+export async function registrarResultado(id: string, resultado: "seleccionado" | "no seleccionado") {
+  const r = await sb().from("postulaciones").update({ resultado }).eq("id", id).select().single();
+  return check<Postulacion>(r);
+}
+
 export async function verificarAvance(estId: string) {
   return actualizarEstudiante(estId, { avance_verificado: true });
 }

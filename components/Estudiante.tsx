@@ -194,11 +194,11 @@ export function MisPostulaciones({ c }: { c: Ctx }) {
   return (
     <>
       <section style={{ display: "grid", gap: 6 }}><span className="eyebrow">{e.nombre}</span><h1>Mis postulaciones</h1><p className="lead">Cada postulación se clasifica automáticamente según los requisitos de la búsqueda. Las que cumplen son las que la Prosecretaría envía a la organización.</p></section>
-      {ps.length ? <div className="table-wrap panel" style={{ padding: "8px 12px" }}><table><thead><tr><th>Búsqueda</th><th>Organización</th><th>Fecha</th><th>Clasificación</th><th>Envío</th></tr></thead><tbody>
+      {ps.length ? <div className="table-wrap panel" style={{ padding: "8px 12px" }}><table><thead><tr><th>Búsqueda</th><th>Organización</th><th>Fecha</th><th>Clasificación</th><th>Estado</th></tr></thead><tbody>
         {ps.map((p) => { const b = bus(p.busqueda_id); return (
           <tr key={p.id}><td><strong>{b?.titulo}</strong></td><td>{org(b?.organizacion_id)?.nombre}</td><td className="num">{fmt(p.created_at)}</td>
             <td>{p.cumple_requisitos ? <span className="tag ok">Cumple requisitos</span> : <><span className="tag no">No cumple requisitos</span><div style={{ color: "var(--muted)", fontSize: ".82rem", marginTop: 4 }}>{p.motivos.join(" · ")}</div></>}</td>
-            <td>{p.enviada ? <span className="tag acc">Enviada a la organización</span> : p.descartada ? <><span className="tag no">No enviada</span><div className="mut" style={{ fontSize: ".8rem" }}>{p.motivo_descarte}</div></> : <span className="mut" style={{ fontSize: ".85rem" }}>{p.cumple_requisitos ? "En revisión de la Prosecretaría" : "No se envía"}</span>}</td></tr>); })}
+            <td>{p.enviada ? (p.resultado === "seleccionado" ? <span className="tag ok">¡Seleccionado/a!</span> : p.resultado ? <span className="tag no">No seleccionado/a</span> : <><span className="tag acc">Enviada a la organización</span><div className="mut" style={{ fontSize: ".8rem" }}>Esperando la selección</div></>) : p.descartada ? <><span className="tag no">No enviada</span><div className="mut" style={{ fontSize: ".8rem" }}>{p.motivo_descarte}</div></> : <span className="mut" style={{ fontSize: ".85rem" }}>{p.cumple_requisitos ? "En revisión de la Prosecretaría" : "No se envía"}</span>}</td></tr>); })}
       </tbody></table></div> : <p className="empty">Todavía no te postulaste a ninguna búsqueda. <button className="linkbtn" type="button" onClick={() => c.ir("busquedas")}>Ir a Postularme</button></p>}
     </>
   );

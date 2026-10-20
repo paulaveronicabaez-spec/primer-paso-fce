@@ -99,6 +99,8 @@ create table if not exists public.postulaciones (
   enviada_at        timestamptz,
   descartada        boolean not null default false,   -- la Prosecretaría decidió no enviarla
   motivo_descarte   text,
+  resultado         text check (resultado in ('seleccionado','no seleccionado')),  -- HU6: lo registra la organización (o la Prosecretaría)
+  resultado_at      timestamptz,
   unique (busqueda_id, estudiante_id)
 );
 
@@ -206,6 +208,17 @@ begin
       'Contacto: ' || new.contacto || ' · ' || new.email || ' · ' || new.telefono || chr(10) ||
       'Convenio de pasantías: ' || case when new.convenio then 'declara convenio vigente' || coalesce(' hasta el ' || to_char(new.convenio_vence, 'DD/MM/YYYY'), '') else 'no declara convenio (no puede publicar pasantías)' end || '.'
     );
+  elsif tg_table_name = 'postulaciones' then
+    if new.resultado is not null and new.resultado is distinct from old.resultado then
+      insert into correos (asunto, cuerpo)
+      select 'Selección registrada: ' || b.titulo,
+             og.nombre || ' registró el resultado de una postulación.' || chr(10) ||
+             'Búsqueda: ' || b.titulo || ' (' || case when b.tipo = 'pasantia' then 'pasantía' else 'empleo' end || ')' || chr(10) ||
+             'Estudiante: ' || e.nombre || ' ' || e.apellido || ' · legajo ' || e.legajo || chr(10) ||
+             'Resultado: ' || case when new.resultado = 'seleccionado' then 'SELECCIONADO/A' else 'no seleccionado/a' end || '.'
+        from busquedas b join organizaciones og on og.id = b.organizacion_id join estudiantes e on e.id = new.estudiante_id
+       where b.id = new.busqueda_id;
+    end if;
   elsif tg_table_name = 'busquedas' then
     select * into o from organizaciones where id = new.organizacion_id;
     insert into correos (asunto, cuerpo) values (
@@ -222,6 +235,9 @@ end $$;
 
 drop trigger if exists trg_notificar_org on public.organizaciones;
 create trigger trg_notificar_org after insert on public.organizaciones
+  for each row execute function public.notificar_prosecretaria();
+drop trigger if exists trg_notificar_pos on public.postulaciones;
+create trigger trg_notificar_pos after update on public.postulaciones
   for each row execute function public.notificar_prosecretaria();
 drop trigger if exists trg_notificar_bus on public.busquedas;
 create trigger trg_notificar_bus after insert on public.busquedas

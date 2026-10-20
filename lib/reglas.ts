@@ -1,4 +1,4 @@
-import type { Brod, Busqueda, Estudiante, Organizacion } from "./tipos";
+import type { Brod, Busqueda, Estudiante, Organizacion, Postulacion } from "./tipos";
 
 export const CARRERAS = ["Contador Público", "Lic. en Administración", "Lic. en Economía"];
 export const RIASEC = ["Convencional", "Investigador", "Emprendedor", "Social", "Artístico", "Realista"];
@@ -184,4 +184,22 @@ export function afinidad(e: Estudiante | undefined, b: Busqueda) {
   const area = !!b.area_riasec && (e.brod.riasec1 === b.area_riasec || e.brod.riasec2 === b.area_riasec);
   const pct = Math.round(100 * ((0.8 * comunes.length) / b.competencias.length + (area ? 0.2 : 0)));
   return { pct, comunes, faltan: b.competencias.filter((c) => !ec.includes(c)), area };
+}
+
+/* ===== Seguimiento de cada búsqueda (tablero de la Prosecretaría) ===== */
+export const ESTADOS_BUSQUEDA: [string, string, string][] = [
+  ["sinpost", "Sin postulaciones", "no"],
+  ["pendiente", "Pendiente de envío de postulaciones", "warn"],
+  ["enviada", "Con envío · esperando selección", "acc"],
+  ["seleccion", "Con estudiante seleccionado", "ok"],
+  ["sinsel", "Sin selección", "no"],
+];
+export function estadoBusqueda(b: Busqueda, ps: Postulacion[]) {
+  const mias = ps.filter((p) => p.busqueda_id === b.id);
+  const pend = mias.filter((p) => p.cumple_requisitos && !p.enviada && !p.descartada).length;
+  const env = mias.filter((p) => p.enviada);
+  const sel = env.filter((p) => p.resultado === "seleccionado").length;
+  const sinRes = env.filter((p) => !p.resultado).length;
+  const k = sel ? "seleccion" : sinRes ? "enviada" : pend ? "pendiente" : mias.length ? "sinsel" : "sinpost";
+  return { k, ps: mias.length, pend, env: env.length, sel, sinRes };
 }

@@ -84,6 +84,8 @@ export interface Postulacion {
   enviada_at: string | null;
   descartada: boolean;
   motivo_descarte: string | null;
+  resultado: "seleccionado" | "no seleccionado" | null;
+  resultado_at: string | null;
 }
 
 export interface Correo {

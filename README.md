@@ -8,7 +8,7 @@ Todos los datos son ficticios.
 ## Qué hace (Sprint 1 + Sprint 2)
 - **Tres perfiles con usuario y contraseña** (Supabase Auth): estudiante, organización y Prosecretaría.
 - **Estudiante:** alta en 3 pasos (datos personales → avance según SIU Guaraní → test de BrOD, obligatorio). Ve todas las búsquedas, sabe en cuáles cumple y qué le falta, y ve su afinidad por competencias. Se postula con un clic; la base calcula la clasificación. La pestaña **Postularme** avisa las novedades desde su último ingreso.
-- **Organización:** se registra con CUIT y puede publicar todas las búsquedas que necesite. Las publica con los mismos datos que carga el estudiante: carrera y avance (SIU Guaraní), perfil buscado en lenguaje simple y competencias (BrOD). Ve sus postulaciones de forma anónima hasta que la Prosecretaría las envía.
+- **Organización:** se registra con CUIT y puede publicar todas las búsquedas que necesite. Las publica con los mismos datos que carga el estudiante: carrera y avance (SIU Guaraní), perfil buscado en lenguaje simple y competencias (BrOD). Ve sus postulaciones de forma anónima hasta que la Prosecretaría las envía, y registra a quién seleccionó (HU6).
 - **Controles de la Ley 26.427:**
   - convenio vigente;
   - cupo de pasantes según la planta (informativo: no bloquea la publicación; la Prosecretaría lo evalúa al enviar);
@@ -20,7 +20,7 @@ Todos los datos son ficticios.
   - al postularse: alumno regular, mayor de 18 y sin otra pasantía vigente.
 
   Se controlan en la pantalla y también en la base de datos.
-- **Prosecretaría:** tablero; evaluación de postulaciones (enviar a la organización o no enviar, con motivo); correos de novedades (los genera la base con un trigger); verificación del avance contra SIU Guaraní; organizaciones con convenio y cupo.
+- **Prosecretaría:** tablero con el seguimiento de cada búsqueda (sin postulaciones → pendiente de envío → con envío → con estudiante seleccionado o sin selección); evaluación de postulaciones (enviar a la organización o no enviar, con motivo); correos de novedades (los genera la base con un trigger); verificación del avance contra SIU Guaraní; organizaciones con convenio y cupo.
 
 ## Estructura
 - `app/`, `components/`, `lib/`: aplicación Next.js (App Router) + TypeScript + Tailwind.
@@ -68,7 +68,6 @@ Probados de punta a punta contra la base con sus políticas:
   - si el estudiante cambia el avance, la verificación vuelve a quedar pendiente.
 
 **Pendiente (Sprint 3):**
-- HU6: registrar la selección.
 - HU8: afinidad con IA.
 - HU14: recuperar contraseña.
 - Envío real de correos (a confirmar con el docente).
