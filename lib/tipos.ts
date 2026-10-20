@@ -82,6 +82,8 @@ export interface Postulacion {
   estado: "cumple requisitos" | "no cumple requisitos";
   enviada: boolean;
   enviada_at: string | null;
+  descartada: boolean;
+  motivo_descarte: string | null;
 }
 
 export interface Correo {

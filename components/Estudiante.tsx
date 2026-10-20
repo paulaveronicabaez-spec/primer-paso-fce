@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import type { Ctx } from "@/lib/ctx";
 import type { Brod, Estudiante } from "@/lib/tipos";
 import {
-  BROD_URL, CARRERAS, COMPETENCIAS, ENEA, ETAPAS, RIASEC, academicoPendiente, afinidad, altaCompleta, brodAlerta, brodTiene,
+  BROD_URL, CARRERAS, COMPETENCIAS, ENEA, ETAPAS, PERFIL, RIASEC, pNom, academicoPendiente, afinidad, altaCompleta, brodAlerta, brodTiene,
   edadDe, evaluar, fmt, mensajeError, perfilScore,
 } from "@/lib/reglas";
 import * as api from "@/lib/api";
@@ -29,6 +29,7 @@ export function Perfil({ c }: { c: Ctx }) {
   const score = perfilScore(f.carrera, f.avance, b);
   const al = brodAlerta(e), ap = academicoPendiente(e);
   const opt = (arr: string[], ph: string) => [<option key="" value="">{ph}</option>, ...arr.map((x) => <option key={x}>{x}</option>)];
+  const optP = (ph: string) => [<option key="" value="">{ph}</option>, ...RIASEC.map((x) => <option key={x} value={x}>{PERFIL[x][0]} ({x})</option>)];
   const toggleComp = (x: string) => setB({ ...b, competencias: b.competencias.includes(x) ? b.competencias.filter((y) => y !== x) : [...b.competencias, x] });
 
   async function guardar(ev: FormEvent) {
@@ -40,7 +41,7 @@ export function Perfil({ c }: { c: Ctx }) {
     if (b.competencias.length > 5) er.competencias = "Elegí hasta 5 competencias: las que mejor te representan.";
     else if (b.competencias.length < 3) er.competencias = "Elegí al menos 3 competencias, según tu resultado del test.";
     if (!b.etapa) er.etapa = "Elegí la etapa en la que estás.";
-    if (!b.riasec1) er.riasec1 = "Elegí tu área principal según el test.";
+    if (!b.riasec1) er.riasec1 = "Elegí tu perfil principal según el test.";
     if (!b.titular.trim()) er.titular = "Copiá el perfil que te dio el test de BrOD.";
     setErr(er);
     if (Object.keys(er).length) return;
@@ -88,8 +89,8 @@ export function Perfil({ c }: { c: Ctx }) {
           <div className="form">
             <Field id="b-etapa" label="Tu momento" err={err.etapa}><select id="b-etapa" value={b.etapa} onChange={(x) => setB({ ...b, etapa: x.target.value })}>{opt(ETAPAS, "Elegí una opción")}</select></Field>
             <Field id="b-enea" label={<>Tipo de Eneagrama <small className="mut">(opcional)</small></>}><select id="b-enea" value={b.enea} onChange={(x) => setB({ ...b, enea: x.target.value })}>{opt(ENEA, "No lo hice")}</select></Field>
-            <Field id="b-r1" label="Área vocacional principal (RIASEC)" err={err.riasec1}><select id="b-r1" value={b.riasec1} onChange={(x) => setB({ ...b, riasec1: x.target.value })}>{opt(RIASEC, "Elegí tu mejor match")}</select></Field>
-            <Field id="b-r2" label="Área relacionada"><select id="b-r2" value={b.riasec2} onChange={(x) => setB({ ...b, riasec2: x.target.value })}>{opt(RIASEC, "Opcional")}</select></Field>
+            <Field id="b-r1" label="Tu perfil principal según el test" err={err.riasec1} hint="Entre paréntesis, el nombre que usa BrOD."><select id="b-r1" value={b.riasec1} onChange={(x) => setB({ ...b, riasec1: x.target.value })}>{optP("Elegí tu resultado")}</select></Field>
+            <Field id="b-r2" label={<>Perfil relacionado <small className="mut">(opcional)</small></>}><select id="b-r2" value={b.riasec2} onChange={(x) => setB({ ...b, riasec2: x.target.value })}>{optP("Ninguno")}</select></Field>
             <fieldset className={`field full${err.competencias ? " invalid" : ""}`}><legend>Competencias blandas (elegí entre 3 y 5)</legend>
               <div className="comp">{COMPETENCIAS.map((x) => <label key={x}><input type="checkbox" checked={b.competencias.includes(x)} onChange={() => toggleComp(x)} /> {x}</label>)}</div><Err msg={err.competencias} /></fieldset>
             <Field id="b-tit" label="Perfil según test" err={err.titular} hint="Copiá el perfil que te otorgó BrOD al terminar el test." full><input id="b-tit" maxLength={120} value={b.titular} placeholder="Ej.: Analista contable orientado a impuestos" onChange={(x) => setB({ ...b, titular: x.target.value })} /></Field>
@@ -167,13 +168,13 @@ export function Detalle({ c }: { c: Ctx }) {
         <div className="job-head"><div style={{ display: "grid", gap: 4 }}><span className="eyebrow">{b.tipo === "pasantia" ? "Pasantía educativa" : "Empleo"}</span><h1>{b.titulo}</h1><p className="job-org">{o?.nombre}</p></div>
           {r.cumple ? <span className="tag ok">✔ Cumplís los requisitos</span> : <span className="tag no">No cumplís</span>}</div>
         <div className="chips"><span className="chip num">{b.horas_semanales} h semanales</span>{b.duracion_meses ? <span className="chip num">{b.duracion_meses} meses</span> : null}{b.tipo === "pasantia" && b.asignacion_estimulo ? <span className="chip num">Asignación estímulo $ {Number(b.asignacion_estimulo).toLocaleString("es-AR")}</span> : null}<span className="chip">{b.modalidad}</span></div>
-        {(() => { const a = afinidad(e, b); return a ? <div className="brod-sum"><span className="eyebrow">Afinidad con tu perfil BrOD · <span className="num">{a.pct}%</span></span><span>Área buscada: <b>{b.area_riasec}</b> {a.area ? "✔ coincide con tu test" : `· tu área es ${e.brod?.riasec1}`}</span><div className="chips">{a.comunes.map((x) => <span className="tag ok" key={x}>✔ {x}</span>)}{a.faltan.map((x) => <span className="chip" key={x}>{x}</span>)}</div><small className="mut">Tenés {a.comunes.length} de {b.competencias.length} competencias buscadas. La afinidad no cambia si cumplís los requisitos: ayuda a la organización a decidir (la versión con IA está en el roadmap).</small></div> : null; })()}
+        {(() => { const a = afinidad(e, b); return a ? <div className="brod-sum"><span className="eyebrow">Afinidad con tu perfil BrOD · <span className="num">{a.pct}%</span></span><span>Perfil buscado: <b>{pNom(b.area_riasec)}</b> {a.area ? "✔ coincide con tu test" : `· tu perfil es ${pNom(e.brod?.riasec1)}`}</span><div className="chips">{a.comunes.map((x) => <span className="tag ok" key={x}>✔ {x}</span>)}{a.faltan.map((x) => <span className="chip" key={x}>{x}</span>)}</div><small className="mut">Tenés {a.comunes.length} de {b.competencias.length} competencias buscadas. La afinidad no cambia si cumplís los requisitos: ayuda a la organización a decidir (la versión con IA está en el roadmap).</small></div> : null; })()}
         {b.descripcion ? <p>{b.descripcion}</p> : null}
         {b.tipo === "pasantia" ? <p className="law">Pasantía educativa · Ley 26.427 · {b.dias_semana} días por semana · tutor/a: {b.tutor} · con ART y obra social</p> : null}
         <div style={{ display: "grid", gap: 8 }}><h3>Requisitos</h3><ul className="req">{r.req.map((q) => (
           <li key={q.txt}><span className={`mark ${q.ok ? "ok" : "no"}`} aria-hidden="true">{q.ok ? "✔" : "✘"}</span><span>{q.txt}{q.ok ? null : <small> · {q.motivo}</small>}</span></li>))}</ul></div>
         {e.brod ? <div className="brod-sum"><span className="eyebrow">Tu perfil según el test · BrOD</span><span className="t">{e.brod.titular}</span>
-          <div className="chips">{e.brod.riasec1 ? <span className="tag ia">{e.brod.riasec1}</span> : null}{(e.brod.competencias || []).map((x) => <span className="chip" key={x}>{x}</span>)}</div>
+          <div className="chips">{e.brod.riasec1 ? <span className="tag ia">{pNom(e.brod.riasec1)}</span> : null}{(e.brod.competencias || []).map((x) => <span className="chip" key={x}>{x}</span>)}</div>
           <small style={{ color: "var(--muted)" }}>{e.avance_verificado ? `Avance verificado con SIU Guaraní el ${fmt(e.verificado_at)}` : "Avance pendiente de verificación por la Prosecretaría"}. La organización ve tu perfil recién cuando la Prosecretaría envía los postulantes.</small></div> : null}
         {err ? <Notice tipo="warn" role="alert"><span>{err}</span></Notice> : null}
         {ap ? <Notice tipo={ap.cumple_requisitos ? "ok" : "warn"}><strong>Ya te postulaste.</strong><span>Tu postulación quedó clasificada como <b>{ap.cumple_requisitos ? "Cumple requisitos" : "No cumple requisitos"}</b>.</span><div className="actions"><button className="btn ghost" type="button" onClick={() => c.ir("postulaciones")}>Ver mis postulaciones</button></div></Notice>
@@ -197,7 +198,7 @@ export function MisPostulaciones({ c }: { c: Ctx }) {
         {ps.map((p) => { const b = bus(p.busqueda_id); return (
           <tr key={p.id}><td><strong>{b?.titulo}</strong></td><td>{org(b?.organizacion_id)?.nombre}</td><td className="num">{fmt(p.created_at)}</td>
             <td>{p.cumple_requisitos ? <span className="tag ok">Cumple requisitos</span> : <><span className="tag no">No cumple requisitos</span><div style={{ color: "var(--muted)", fontSize: ".82rem", marginTop: 4 }}>{p.motivos.join(" · ")}</div></>}</td>
-            <td>{p.enviada ? <span className="tag acc">Enviada a la organización</span> : <span className="mut" style={{ fontSize: ".85rem" }}>{p.cumple_requisitos ? "En revisión de la Prosecretaría" : "No se envía"}</span>}</td></tr>); })}
+            <td>{p.enviada ? <span className="tag acc">Enviada a la organización</span> : p.descartada ? <><span className="tag no">No enviada</span><div className="mut" style={{ fontSize: ".8rem" }}>{p.motivo_descarte}</div></> : <span className="mut" style={{ fontSize: ".85rem" }}>{p.cumple_requisitos ? "En revisión de la Prosecretaría" : "No se envía"}</span>}</td></tr>); })}
       </tbody></table></div> : <p className="empty">Todavía no te postulaste a ninguna búsqueda. <button className="linkbtn" type="button" onClick={() => c.ir("busquedas")}>Ir a Postularme</button></p>}
     </>
   );

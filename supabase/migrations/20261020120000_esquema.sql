@@ -95,8 +95,10 @@ create table if not exists public.postulaciones (
   cumple_requisitos boolean not null,
   motivos           text[] not null default '{}',
   estado            text not null check (estado in ('cumple requisitos','no cumple requisitos')),
-  enviada           boolean not null default false,   -- la Prosecretaría la envió a la organización (HU5b, Sprint 3)
+  enviada           boolean not null default false,   -- la Prosecretaría la evaluó y la envió a la organización (HU5b)
   enviada_at        timestamptz,
+  descartada        boolean not null default false,   -- la Prosecretaría decidió no enviarla
+  motivo_descarte   text,
   unique (busqueda_id, estudiante_id)
 );
 
@@ -121,12 +123,12 @@ returns int language sql immutable as $$
   end
 $$;
 
--- Controles cruzados con la organización: convenio vigente y cupo.
+-- Control cruzado con la organización: convenio vigente.
+-- El cupo de pasantes según la planta NO bloquea la publicación: la Prosecretaría lo evalúa al enviar postulantes.
 create or replace function public.controlar_pasantia()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   o organizaciones;
-  usados int;
 begin
   if new.tipo <> 'pasantia' or new.estado <> 'publicada' then
     return new;
@@ -135,19 +137,12 @@ begin
   if not o.convenio or (o.convenio_vence is not null and o.convenio_vence < current_date) then
     raise exception 'LEY26427_CONVENIO: La organización no tiene convenio de pasantías vigente con la FCE.';
   end if;
-  select coalesce(sum(vacantes), 0) into usados
-    from busquedas
-   where organizacion_id = new.organizacion_id and tipo = 'pasantia' and estado = 'publicada' and id <> new.id;
-  if usados + new.vacantes > cupo_pasantes(o.empleados) then
-    raise exception 'LEY26427_CUPO: Supera el cupo de pasantes de la organización: % según una planta de % personas (ya hay % vacantes publicadas).',
-      cupo_pasantes(o.empleados), o.empleados, usados;
-  end if;
   return new;
 end $$;
 
 drop trigger if exists trg_controlar_pasantia on public.busquedas;
 create trigger trg_controlar_pasantia
-  before insert or update on public.busquedas
+  before insert on public.busquedas
   for each row execute function public.controlar_pasantia();
 
 -- ===== HU4: postulación con clasificación calculada en la base =====

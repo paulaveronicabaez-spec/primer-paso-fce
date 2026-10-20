@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Ctx } from "@/lib/ctx";
-import { PROSEC_MAIL, convenioVigente, cupoPasantes, fmt, fmtHora, mensajeError, vacantesUsadas } from "@/lib/reglas";
+import { MOTIVOS_DESCARTE, PROSEC_MAIL, convenioVigente, cupoPasantes, edadDe, fmt, fmtHora, mensajeError, pNom, vacantesUsadas } from "@/lib/reglas";
 import * as api from "@/lib/api";
 import { Notice } from "./ui";
 
@@ -27,7 +27,7 @@ export function Tablero({ c }: { c: Ctx }) {
         {datos.busquedas.map((b) => { const ps = P.filter((p) => p.busqueda_id === b.id); return (
           <tr key={b.id}><td><strong>{b.titulo}</strong><div className="mut" style={{ fontSize: ".8rem" }}>{b.tipo === "pasantia" ? "Pasantía" : "Empleo"} · {b.carrera}</div></td><td>{org(b.organizacion_id)?.nombre}</td><td className="num">{fmt(b.created_at)}</td><td className="num">{ps.length}</td><td className="num">{ps.filter((p) => p.cumple_requisitos).length}</td><td className="num">{ps.filter((p) => p.enviada).length}</td></tr>); })}
       </tbody></table></div></section>
-      <p className="hint mut">Sprint 3: ver los postulantes de cada búsqueda y enviarlos a la organización (HU5a y HU5b), y registrar la selección (HU6).</p>
+      <p className="hint mut">Para revisar y enviar postulantes, entrá a «Evaluar postulaciones». Registrar la selección (HU6) queda para el Sprint 3.</p>
     </>
   );
 }
@@ -89,6 +89,66 @@ export function Organizaciones({ c }: { c: Ctx }) {
             <td className="num">{vacantesUsadas(o, c.datos.busquedas)} de {cupoPasantes(o.empleados)} <span className="mut" style={{ fontSize: ".8rem" }}>(planta {o.empleados})</span></td>
             <td className="num">{fmt(o.created_at)}</td></tr>))}
       </tbody></table></div></section>
+    </>
+  );
+}
+
+/* ===== HU5a + HU5b · Evaluar postulaciones y enviar a la organización las aprobadas ===== */
+export function Evaluar({ c }: { c: Ctx }) {
+  const { datos } = c;
+  const [motivos, setMotivos] = useState<Record<string, string>>({});
+  const [err, setErr] = useState("");
+  const [enProceso, setEnProceso] = useState<string | null>(null);
+  const est = (id: string) => datos.estudiantes.find((e) => e.id === id);
+  const org = (id: string) => datos.organizaciones.find((o) => o.id === id);
+  const bs = datos.busquedas.filter((b) => datos.postulaciones.some((p) => p.busqueda_id === b.id));
+
+  async function accion(id: string, tipo: "enviar" | "descartar") {
+    setErr("");
+    if (tipo === "descartar" && !motivos[id]) { setErr("Elegí el motivo para no enviar la postulación."); return; }
+    setEnProceso(id);
+    try {
+      if (tipo === "enviar") await api.enviarPostulacion(id); else await api.descartarPostulacion(id, motivos[id]);
+      const y = window.scrollY; await c.recargar(); window.scrollTo(0, y);
+      c.aviso(tipo === "enviar" ? "Postulación enviada a la organización" : "Postulación marcada como no enviada");
+    } catch (x) { setErr(mensajeError(x)); }
+    setEnProceso(null);
+  }
+
+  return (
+    <>
+      <section style={{ display: "grid", gap: 6 }}><span className="eyebrow">Prosecretaría</span><h1>Evaluar postulaciones</h1><p className="lead">Revisá cada postulación y enviá a la organización las que aprobás. La organización ve el perfil del estudiante recién después del envío. Las que no cumplen requisitos no se envían.</p></section>
+      {err ? <Notice tipo="warn" role="alert"><span>{err}</span></Notice> : null}
+      {bs.length ? bs.map((b) => {
+        const o = org(b.organizacion_id)!;
+        const ps = datos.postulaciones.filter((p) => p.busqueda_id === b.id).sort((x, y) => Number(y.cumple_requisitos) - Number(x.cumple_requisitos) || (datos.afinidades[y.id] ?? 0) - (datos.afinidades[x.id] ?? 0));
+        const env = ps.filter((p) => p.enviada).length;
+        const cupo = cupoPasantes(o.empleados);
+        const envPas = datos.postulaciones.filter((p) => { const bb = datos.busquedas.find((x) => x.id === p.busqueda_id); return p.enviada && bb?.organizacion_id === o.id && bb.tipo === "pasantia"; }).length;
+        return (
+          <section className="panel" style={{ display: "grid", gap: 10 }} key={b.id}>
+            <div className="job-head"><div><div className="job-title">{b.titulo}</div><div className="job-org">{o.nombre} · {b.tipo === "pasantia" ? "Pasantía" : "Empleo"} · {b.vacantes} vacante(s) · perfil buscado: {pNom(b.area_riasec)}</div></div><span className="tag acc num">{env} enviadas</span></div>
+            {b.tipo === "pasantia" ? <div className="chips">{convenioVigente(o) ? <span className="tag ok">Convenio vigente</span> : <span className="tag no">Sin convenio vigente</span>}<span className={`tag ${envPas >= cupo ? "warn" : "ok"} num`}>Pasantes enviados {envPas} · cupo según planta {cupo}</span></div> : null}
+            <div className="table-wrap"><table><thead><tr><th>Estudiante</th><th>Clasificación</th><th>Afinidad</th><th>Avance</th><th>Evaluación</th></tr></thead><tbody>
+              {ps.map((p) => { const e = est(p.estudiante_id); const a = datos.afinidades[p.id]; return (
+                <tr key={p.id}>
+                  <td><strong>{e ? `${e.apellido}, ${e.nombre}` : "—"}</strong><div className="mut" style={{ fontSize: ".8rem" }}>{e?.carrera} · {edadDe(e?.fnac)} años</div>{e?.brod?.titular ? <div style={{ fontSize: ".82rem" }}>{e.brod.titular}</div> : null}</td>
+                  <td>{p.cumple_requisitos ? <span className="tag ok">Cumple</span> : <><span className="tag no">No cumple</span><div className="mut" style={{ fontSize: ".8rem" }}>{p.motivos.join(" · ")}</div></>}</td>
+                  <td className="num">{a != null ? a + "%" : "—"}</td>
+                  <td>{e?.avance}% {e?.avance_verificado ? <span className="tag ok">Verificado</span> : <span className="tag warn">Sin verificar</span>}</td>
+                  <td>{p.enviada ? <span className="tag acc">Enviada el {fmt(p.enviada_at)}</span>
+                    : p.descartada ? <><span className="tag no">No enviada</span><div className="mut" style={{ fontSize: ".8rem" }}>{p.motivo_descarte}</div></>
+                      : !p.cumple_requisitos ? <span className="mut" style={{ fontSize: ".85rem" }}>No se envía (no cumple)</span>
+                        : <div className="evalz">
+                          <button className="btn" type="button" disabled={enProceso === p.id} onClick={() => accion(p.id, "enviar")}>Enviar a la organización</button>
+                          <select aria-label="Motivo para no enviar" value={motivos[p.id] || ""} onChange={(x) => setMotivos({ ...motivos, [p.id]: x.target.value })}><option value="">No enviar por…</option>{MOTIVOS_DESCARTE.map((m) => <option key={m}>{m}</option>)}</select>
+                          <button className="btn ghost" type="button" disabled={enProceso === p.id} onClick={() => accion(p.id, "descartar")}>No enviar</button>
+                        </div>}</td>
+                </tr>); })}
+            </tbody></table></div>
+          </section>);
+      }) : <p className="empty">Todavía no hay postulaciones.</p>}
+      <p className="hint mut">Al enviar, la organización ve el perfil completo del estudiante. El registro de la selección por parte de la organización (HU6) llega en el Sprint 3.</p>
     </>
   );
 }

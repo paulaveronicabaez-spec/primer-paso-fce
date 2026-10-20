@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import type { Ctx } from "@/lib/ctx";
 import type { Estudiante, Organizacion } from "@/lib/tipos";
 import {
-  CARRERAS, COMPETENCIAS, MODALIDADES, RIASEC, controlesLey, convenioVigente, edadDe, fmt, mensajeError,
+  CARRERAS, COMPETENCIAS, MODALIDADES, PERFIL, RIASEC, controlesLey, pNom, convenioVigente, edadDe, fmt, mensajeError,
   perfilDesact, ultimaAct, vacantesUsadas, validarBusqueda, type FormBusqueda,
 } from "@/lib/reglas";
 import * as api from "@/lib/api";
@@ -20,7 +20,7 @@ function PerfilCard({ e }: { e: Estudiante }) {
       <span>{e.avance_verificado ? <span className="tag ok">✔ Avance verificado con SIU Guaraní</span> : <span className="tag warn">Avance sin verificar</span>}</span>
       <span className="mut">{e.email}</span>
       {bd?.titular ? <span className="t">{bd.titular}</span> : null}
-      <div className="chips">{bd?.riasec1 ? <span className="tag ia">{bd.riasec1}</span> : null}{(bd?.competencias || []).map((x) => <span className="chip" key={x}>{x}</span>)}</div>
+      <div className="chips">{bd?.riasec1 ? <span className="tag ia">{pNom(bd.riasec1)}</span> : null}{(bd?.competencias || []).map((x) => <span className="chip" key={x}>{x}</span>)}</div>
       <small className="mut">Perfil actualizado el {fmt(ultimaAct(e))}{perfilDesact(e) ? <> · <span className="tag no">Perfil desactualizado</span></> : null}</small>
     </div>
   );
@@ -44,7 +44,7 @@ export function OrgBusquedas({ c }: { c: Ctx }) {
         return (
           <section className="panel" style={{ display: "grid", gap: 10 }} key={b.id}>
             <div className="job-head"><div><div className="job-title">{b.titulo}</div><div className="job-org">Publicada el {fmt(b.created_at)} · {b.modalidad}</div></div><span className="tag acc num">{ps.length} {ps.length === 1 ? "postulación" : "postulaciones"}</span></div>
-            <div className="chips"><span className="chip">{b.tipo === "pasantia" ? "Pasantía" : "Empleo"}</span><span className="chip">{b.carrera}</span><span className="chip num">Avance {b.avance_minimo}%</span><span className="tag ia">{b.area_riasec}</span><span className="chip num">{ok} cumplen</span><span className="chip num">{env} enviadas por la Prosecretaría</span></div>
+            <div className="chips"><span className="chip">{b.tipo === "pasantia" ? "Pasantía" : "Empleo"}</span><span className="chip">{b.carrera}</span><span className="chip num">Avance {b.avance_minimo}%</span><span className="tag ia">{pNom(b.area_riasec)}</span><span className="chip num">{ok} cumplen</span><span className="chip num">{env} enviadas por la Prosecretaría</span></div>
             {ps.length ? <div className="table-wrap"><table><thead><tr><th>Postulante</th><th>Fecha</th><th>Clasificación</th><th>Afinidad</th><th>Perfil del estudiante</th></tr></thead><tbody>
               {ps.map((p, i) => {
                 const e = c.datos.estudiantes.find((x) => x.id === p.estudiante_id);
@@ -58,7 +58,7 @@ export function OrgBusquedas({ c }: { c: Ctx }) {
             </tbody></table></div> : <p className="empty">Todavía no hay postulaciones para esta búsqueda.</p>}
           </section>);
       }) : <p className="empty">Todavía no publicaste búsquedas. <button className="linkbtn" type="button" onClick={() => c.ir("org")}>Publicar la primera</button></p>}
-      <p className="hint mut">La afinidad la calcula la base cruzando las competencias y el área buscadas con el test de BrOD de cada postulante, sin mostrarte su perfil. El envío de postulantes (HU5b) y el registro de la selección (HU6) también llegan en el Sprint 3.</p>
+      <p className="hint mut">La afinidad la calcula la base cruzando las competencias y el área buscadas con el test de BrOD de cada postulante, sin mostrarte su perfil. La Prosecretaría evalúa cada postulación y te envía las aprobadas: ahí ves el perfil completo. El registro de la selección (HU6) llega en el Sprint 3.</p>
     </>
   );
 }
@@ -74,7 +74,7 @@ export function NuevaBusqueda({ c }: { c: Ctx }) {
   const pas = f.tipo === "pasantia";
   const usadas = vacantesUsadas(o, c.datos.busquedas);
   const ley = controlesLey(f, o, usadas);
-  const okLey = ley.filter((x) => x.ok).length;
+  const okLey = ley.filter((x) => x.ok !== false).length;
   const set = <K extends keyof FormBusqueda>(k: K, v: FormBusqueda[K]) => setF({ ...f, [k]: v });
   const opt = (arr: string[], ph: string) => [<option key="" value="">{ph}</option>, ...arr.map((x) => <option key={x}>{x}</option>)];
 
@@ -123,8 +123,11 @@ export function NuevaBusqueda({ c }: { c: Ctx }) {
         </div>
         <div className="cruce"><h2>3 · Perfil buscado</h2><span className="tag ia">Se cruza con: test de BrOD del estudiante</span></div>
         <div className="form">
-          <Field id="f-area" label="Área vocacional buscada (RIASEC)" err={err.area_riasec}><select id="f-area" value={f.area_riasec} onChange={(x) => set("area_riasec", x.target.value)}>{opt(RIASEC, "Elegí un área")}</select></Field>
-          <Field id="f-area2" label={<>Área relacionada <small className="mut">(opcional)</small></>}><select id="f-area2" value={f.area2} onChange={(x) => set("area2", x.target.value)}>{opt(RIASEC, "Opcional")}</select></Field>
+          <fieldset className={`field full${err.area_riasec ? " invalid" : ""}`}><legend>¿Qué perfil buscás?</legend>
+            <div className="pcards">{RIASEC.map((x) => (
+              <label className="pc" key={x}><input type="radio" name="area_riasec" checked={f.area_riasec === x} onChange={() => set("area_riasec", x)} /><b>{PERFIL[x][0]}</b><span>{PERFIL[x][1]}</span></label>))}</div>
+            <Err msg={err.area_riasec} /></fieldset>
+          <Field id="f-area2" label={<>Perfil complementario <small className="mut">(opcional)</small></>}><select id="f-area2" value={f.area2} onChange={(x) => set("area2", x.target.value)}><option value="">Ninguno</option>{RIASEC.map((x) => <option key={x} value={x}>{PERFIL[x][0]}</option>)}</select></Field>
           <fieldset className={`field full${err.competencias ? " invalid" : ""}`}><legend>Competencias buscadas (elegí entre 3 y 5 · misma lista que el estudiante)</legend>
             <div className="comp">{COMPETENCIAS.map((x) => <label key={x}><input type="checkbox" checked={f.competencias.includes(x)} onChange={() => set("competencias", f.competencias.includes(x) ? f.competencias.filter((y) => y !== x) : [...f.competencias, x])} /> {x}</label>)}</div><Err msg={err.competencias} /></fieldset>
         </div>
@@ -142,7 +145,7 @@ export function NuevaBusqueda({ c }: { c: Ctx }) {
           </> : null}
         </div>
         {pas ? <div className="ley"><div className="sec-head"><h3>Controles de la Ley 26.427</h3><span className={`tag ${okLey === ley.length ? "ok" : "warn"} num`}>{okLey} de {ley.length}</span></div>
-          <ul className="req">{ley.map((x) => <li key={x.txt}><span className={`mark ${x.ok ? "ok" : "no"}`} aria-hidden="true">{x.ok ? "✔" : "✘"}</span><span><small className="mut">{x.grupo} · </small>{x.txt}</span></li>)}</ul></div> : null}
+          <ul className="req">{ley.map((x) => <li key={x.txt}><span className={`mark ${x.ok === null ? "info" : x.ok ? "ok" : "no"}`} aria-hidden="true">{x.ok === null ? "ℹ" : x.ok ? "✔" : "✘"}</span><span><small className="mut">{x.grupo} · </small>{x.txt}</span></li>)}</ul></div> : null}
         <div className="actions"><button className="btn" type="submit" disabled={enviando}>{enviando ? "Publicando…" : "Publicar búsqueda"}</button><span className="hint" style={{ color: "var(--muted)", fontSize: ".85rem" }}>Al publicar, la Prosecretaría recibe un aviso por correo. La base vuelve a controlar la Ley 26.427.</span></div>
       </form>
     </>

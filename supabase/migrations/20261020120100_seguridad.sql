@@ -123,6 +123,17 @@ grant select, insert on public.organizaciones, public.busquedas to authenticated
 grant select, insert, update on public.estudiantes to authenticated;
 grant select, update on public.postulaciones, public.correos to authenticated;
 
+-- Al enviar, la base registra la fecha (la evaluación la hace solo la Prosecretaría por la política pos_update_pro)
+create or replace function public.fecha_envio()
+returns trigger language plpgsql as $$
+begin
+  if new.enviada and not old.enviada then new.enviada_at := now(); new.descartada := false; end if;
+  if new.enviada and not old.cumple_requisitos then raise exception 'NO_CUMPLE: Solo se envían las postulaciones que cumplen requisitos.'; end if;
+  return new;
+end $$;
+drop trigger if exists trg_fecha_envio on public.postulaciones;
+create trigger trg_fecha_envio before update on public.postulaciones for each row execute function public.fecha_envio();
+
 revoke execute on function public.postular(uuid) from public, anon;
 grant execute on function public.postular(uuid) to authenticated;
 grant execute on function public.mi_rol(), public.mi_est_id(), public.org_ve_estudiante(uuid) to authenticated;

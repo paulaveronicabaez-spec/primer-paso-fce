@@ -294,3 +294,12 @@ th{font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mu
 #busForm h2{margin-top:6px}
 .landnav button[aria-current="page"]{outline:2px solid #fff;outline-offset:2px}
 legend{font-weight:600}
+.pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.pc{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;background:var(--surface)}
+.pc input{grid-row:span 2;margin-top:3px;accent-color:var(--accent)}
+.pc span{grid-column:2;font-size:.82rem;color:var(--muted);font-weight:400}
+.pc:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.mark.info{color:var(--accent)}
+.evalz{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.evalz select{border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:var(--surface);color:var(--fg);max-width:200px}
+.evalz .btn{padding:7px 12px;font-size:.85rem}

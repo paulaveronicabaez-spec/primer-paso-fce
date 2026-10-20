@@ -1,7 +1,18 @@
 import type { Brod, Busqueda, Estudiante, Organizacion } from "./tipos";
 
 export const CARRERAS = ["Contador Público", "Lic. en Administración", "Lic. en Economía"];
-export const RIASEC = ["Realista", "Investigador", "Artístico", "Social", "Emprendedor", "Convencional"];
+export const RIASEC = ["Convencional", "Investigador", "Emprendedor", "Social", "Artístico", "Realista"];
+/** Vocabulario simple para cada área del test (RIASEC). Se guarda el código del test para poder cruzar con el estudiante. */
+export const PERFIL: Record<string, [string, string]> = {
+  Convencional: ["Organizado y administrativo", "Orden, registros, normas y números"],
+  Investigador: ["Analítico", "Datos, investigación y resolución de problemas"],
+  Emprendedor: ["Negocios y liderazgo", "Gestión, ventas y toma de decisiones"],
+  Social: ["Orientado a las personas", "Atención, enseñanza y trabajo con otros"],
+  "Artístico": ["Creativo", "Diseño, comunicación e ideas nuevas"],
+  Realista: ["Práctico y operativo", "Tareas concretas, herramientas y trabajo de campo"],
+};
+export const pNom = (c?: string | null) => (c && PERFIL[c] ? PERFIL[c][0] : c || "");
+export const MOTIVOS_DESCARTE = ["Perfil no acorde a la búsqueda", "Ya se cubrieron las vacantes", "Supera el cupo de pasantes de la organización", "Avance sin verificar con SIU Guaraní"];
 export const ENEA = ["1 · Perfeccionista", "2 · Ayudador", "3 · Triunfador", "4 · Individualista", "5 · Investigador", "6 · Leal", "7 · Entusiasta", "8 · Desafiador", "9 · Pacificador"];
 export const ETAPAS = ["Definiendo mi camino", "Quiero cambiar de trabajo", "Busco nuevos horizontes", "Volviendo al mercado"];
 export const COMPETENCIAS = ["Comunicación", "Trabajo en equipo", "Organización", "Pensamiento analítico", "Atención al detalle", "Adaptabilidad", "Resolución de problemas", "Orientación al cliente", "Liderazgo", "Creatividad"];
@@ -58,7 +69,7 @@ export interface FormBusqueda {
   dias_semana: string; duracion_meses: string; vacantes: string; asignacion_estimulo: string; cct: string; tutor: string;
   cobertura_art: boolean; descripcion: string;
 }
-export interface Control { ok: boolean; grupo: "Organización" | "Búsqueda" | "Estudiante"; txt: string }
+export interface Control { ok: boolean | null; grupo: "Organización" | "Búsqueda" | "Estudiante"; txt: string }
 
 /** Lista de controles de la Ley 26.427 para mostrar en vivo al cargar una pasantía. */
 export function controlesLey(f: FormBusqueda, o: Organizacion, usadas: number): Control[] {
@@ -66,7 +77,7 @@ export function controlesLey(f: FormBusqueda, o: Organizacion, usadas: number): 
   const cupo = cupoPasantes(o.empleados);
   return [
     { grupo: "Organización", ok: convenioVigente(o), txt: o.convenio ? `Convenio de pasantías con la FCE vigente${o.convenio_vence ? " hasta el " + fmt(o.convenio_vence) : ""}` : "Convenio de pasantías con la FCE vigente" },
-    { grupo: "Organización", ok: usadas + v <= cupo, txt: `Cupo de pasantes: ${cupo} según una planta de ${o.empleados} personas (en uso: ${usadas}; esta búsqueda suma ${v})` },
+    { grupo: "Organización", ok: null, txt: `Cupo de pasantes según la planta (${o.empleados} personas): ${cupo}. Vacantes publicadas: ${usadas}${usadas + v > cupo ? ` + ${v} de esta búsqueda: supera el cupo` : ""}. Podés publicar igual; la Prosecretaría lo evalúa al enviar postulantes.` },
     { grupo: "Búsqueda", ok: h > 0 && h <= 20, txt: "Hasta 20 horas semanales" },
     { grupo: "Búsqueda", ok: d >= 1 && d <= 5 && h > 0 && h / d <= 6.5, txt: "De lunes a viernes, hasta 6 h 30 min por día" },
     { grupo: "Búsqueda", ok: m >= 2 && m <= 12, txt: "Duración de 2 a 12 meses" },
@@ -77,6 +88,7 @@ export function controlesLey(f: FormBusqueda, o: Organizacion, usadas: number): 
   ];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function validarBusqueda(f: FormBusqueda, o: Organizacion, usadas: number) {
   const err: Record<string, string> = {};
   const n = (k: keyof FormBusqueda) => Number(f[k]);
@@ -84,7 +96,7 @@ export function validarBusqueda(f: FormBusqueda, o: Organizacion, usadas: number
   if (!f.carrera) err.carrera = "Elegí la carrera.";
   if (f.avance_minimo === "" || isNaN(n("avance_minimo")) || n("avance_minimo") < 0 || n("avance_minimo") > 100) err.avance_minimo = "Indicá un porcentaje entre 0 y 100.";
   if (f.horas_semanales === "" || !(n("horas_semanales") > 0)) err.horas_semanales = "Indicá las horas semanales.";
-  if (!f.area_riasec) err.area_riasec = "Elegí el área vocacional que buscás.";
+  if (!f.area_riasec) err.area_riasec = "Elegí el perfil que buscás.";
   if (f.competencias.length < 3 || f.competencias.length > 5) err.competencias = "Elegí entre 3 y 5 competencias.";
   if (!(n("vacantes") >= 1)) err.vacantes = "Indicá al menos una vacante.";
   if (f.tipo === "pasantia") {
@@ -93,7 +105,6 @@ export function validarBusqueda(f: FormBusqueda, o: Organizacion, usadas: number
     if (!(n("dias_semana") >= 1 && n("dias_semana") <= 5)) err.dias_semana = "Indicá de 1 a 5 días (lunes a viernes).";
     else if (!err.horas_semanales && n("horas_semanales") / n("dias_semana") > 6.5) err.dias_semana = "La jornada no puede superar 6 h 30 min por día: sumá días o bajá las horas.";
     if (!(n("duracion_meses") >= 2 && n("duracion_meses") <= 12)) err.duracion_meses = "Una pasantía dura entre 2 y 12 meses.";
-    if (!err.vacantes && usadas + n("vacantes") > cupoPasantes(o.empleados)) err.vacantes = `Supera el cupo de pasantes de tu organización (${cupoPasantes(o.empleados)} según una planta de ${o.empleados} personas; ya hay ${usadas} vacantes publicadas).`;
     if (!(n("asignacion_estimulo") > 0)) err.asignacion_estimulo = "Indicá la asignación estímulo mensual.";
     if (!f.cct.trim()) err.cct = "Indicá el convenio colectivo de referencia.";
     if (!f.tutor.trim()) err.tutor = "Indicá quién será el/la tutor/a.";

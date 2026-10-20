@@ -9,10 +9,10 @@ import { Badge, Notice } from "./ui";
 import { Ingreso, Portada, RegistroEstudiante, RegistroOrganizacion } from "./Publico";
 import { Detalle, MisPostulaciones, Perfil, Postularme } from "./Estudiante";
 import { NuevaBusqueda, OrgBusquedas } from "./Organizacion";
-import { Correos, Organizaciones, Tablero, Verificar } from "./Prosecretaria";
+import { Correos, Evaluar, Organizaciones, Tablero, Verificar } from "./Prosecretaria";
 
 const VACIO: Datos = { organizaciones: [], busquedas: [], estudiantes: [], postulaciones: [], correos: [], afinidades: {}, stats: { busquedas: 0, pasantias: 0, organizaciones: 0, postulaciones: 0 } };
-const NECESITA: Partial<Record<Vista, Rol>> = { perfil: "est", busquedas: "est", detalle: "est", postulaciones: "est", org: "org", orgBus: "org", prosec: "pro", correos: "pro", verif: "pro", orgs: "pro" };
+const NECESITA: Partial<Record<Vista, Rol>> = { perfil: "est", busquedas: "est", detalle: "est", postulaciones: "est", org: "org", orgBus: "org", prosec: "pro", correos: "pro", evaluar: "pro", verif: "pro", orgs: "pro" };
 const INICIO: Record<Rol, Vista> = { est: "busquedas", org: "orgBus", pro: "prosec" };
 const NOV_KEY = "ppf-nov-desde";
 
@@ -104,7 +104,7 @@ export default function App() {
     tabs = [["busquedas", <>Postularme<Badge n={nov} /></>, ["detalle"]], ["postulaciones", "Mis postulaciones"], ["perfil", "Mi perfil"]];
   }
   if (sesion?.rol === "org") tabs = [["orgBus", "Mis búsquedas y postulaciones"], ["org", "Nueva búsqueda"]];
-  if (sesion?.rol === "pro") tabs = [["prosec", "Tablero"], ["correos", <>Correos<Badge n={datos.correos.filter((m) => !m.leido).length} /></>], ["verif", <>Verificar avance<Badge n={datos.estudiantes.filter((e) => e.academico_actualizado && !e.avance_verificado).length} /></>], ["orgs", "Organizaciones"]];
+  if (sesion?.rol === "pro") tabs = [["prosec", "Tablero"], ["correos", <>Correos<Badge n={datos.correos.filter((m) => !m.leido).length} /></>], ["evaluar", <>Evaluar postulaciones<Badge n={datos.postulaciones.filter((p) => p.cumple_requisitos && !p.enviada && !p.descartada).length} /></>], ["verif", <>Verificar avance<Badge n={datos.estudiantes.filter((e) => e.academico_actualizado && !e.avance_verificado).length} /></>], ["orgs", "Organizaciones"]];
 
   const quien = sesion?.rol === "est" ? `Estudiante · ${yo?.nombre ?? ""}${enAlta ? " · completando el alta" : ""}` : sesion?.rol === "org" ? `Organización · ${datos.organizaciones.find((o) => o.id === sesion.ref)?.nombre ?? ""}` : sesion?.rol === "pro" ? "Prosecretaría" : "";
 
@@ -140,6 +140,7 @@ export default function App() {
               {v === "prosec" && <Tablero c={c} />}
               {v === "correos" && <Correos c={c} />}
               {v === "verif" && <Verificar c={c} />}
+              {v === "evaluar" && <Evaluar c={c} />}
               {v === "orgs" && <Organizaciones c={c} />}
             </>}
       </main>

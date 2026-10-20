@@ -4,7 +4,7 @@ export type Vista =
   | "inicio" | "login" | "regEst" | "regOrg"
   | "perfil" | "busquedas" | "detalle" | "postulaciones"
   | "orgBus" | "org"
-  | "prosec" | "correos" | "verif" | "orgs";
+  | "prosec" | "correos" | "evaluar" | "verif" | "orgs";
 
 export interface Filtros { q: string; carrera: string; tipo: string }
 

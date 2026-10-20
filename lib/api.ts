@@ -110,6 +110,16 @@ export async function marcarCorreosLeidos() {
   await sb().from("correos").update({ leido: true }).eq("leido", false);
 }
 
+export async function enviarPostulacion(id: string) {
+  const r = await sb().from("postulaciones").update({ enviada: true }).eq("id", id).select().single();
+  return check<Postulacion>(r);
+}
+
+export async function descartarPostulacion(id: string, motivo: string) {
+  const r = await sb().from("postulaciones").update({ descartada: true, motivo_descarte: motivo }).eq("id", id).select().single();
+  return check<Postulacion>(r);
+}
+
 export async function verificarAvance(estId: string) {
   return actualizarEstudiante(estId, { avance_verificado: true });
 }
