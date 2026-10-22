@@ -340,3 +340,8 @@ tr.sugrow{background:var(--ia-soft)}
 .barras{display:grid;gap:2px}
 .barras i{display:block;height:7px;border-radius:4px;background:var(--ok);min-width:0}
 .barras i.sel{background:var(--ia)}
+.gfiltros{padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);margin-bottom:6px}
+.gfiltros select{max-width:220px}
+.serie .fila.tot{grid-template-columns:auto 1fr;border-top:1px solid var(--line);padding-top:6px;margin-top:4px;font-weight:600}
+.gley{display:inline-block;margin:0 4px 0 2px}.gley i{display:inline-block;width:12px;height:7px;border-radius:4px;background:var(--ok)}.gley.sel i{background:var(--ia)}
+@media (max-width:600px){.gfiltros label{width:100%;justify-content:space-between}.gfiltros select{max-width:none;flex:1}}

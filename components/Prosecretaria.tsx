@@ -38,12 +38,30 @@ export function Tablero({ c }: { c: Ctx }) {
   const kr2 = bConEnv.length ? Math.round((100 * bConEnv.filter((b) => P.some((p) => p.busqueda_id === b.id && p.enviada && p.resultado)).length) / bConEnv.length) : null;
   const dias = envPer.map((p) => diasHabiles(p.created_at, p.enviada_at!));
   const kr3 = dias.length ? dias.reduce((x, y) => x + y, 0) / dias.length : null;
-  const anioSerie = anio ? +anio : new Date().getFullYear();
+  /* Gráfico por mes con filtros propios */
+  const anioMax = anios.length ? anios[anios.length - 1] : new Date().getFullYear();
+  const [gAnio, setGAnio] = useState("");
+  const [gDesde, setGDesde] = useState("1");
+  const [gHasta, setGHasta] = useState("12");
+  const [gTipo, setGTipo] = useState("");
+  const [gOrg, setGOrg] = useState("");
+  const [gCar, setGCar] = useState("");
+  const [gVer, setGVer] = useState("ambas");
+  const anioSerie = gAnio ? +gAnio : anio ? +anio : anioMax;
+  const busDe = (id: string) => datos.busquedas.find((b) => b.id === id);
+  const pG = P.filter((p) => { const b = busDe(p.busqueda_id); if (!b) return false; return (!gTipo || b.tipo === gTipo) && (!gOrg || b.organizacion_id === gOrg) && (!gCar || b.carrera === gCar); });
+  const carrerasG = Array.from(new Set(datos.busquedas.map((b) => b.carrera).filter(Boolean))).sort();
+  const desdeM = Math.min(+gDesde, +gHasta), hastaM = Math.max(+gDesde, +gHasta);
   const serie = MESES.map((_, i) => ({
-    p: P.filter((p) => { const d = new Date(p.created_at); return d.getFullYear() === anioSerie && d.getMonth() === i; }).length,
-    s: P.filter((p) => { if (p.resultado !== "seleccionado" || !p.resultado_at) return false; const d = new Date(p.resultado_at); return d.getFullYear() === anioSerie && d.getMonth() === i; }).length,
-  }));
-  const maxSerie = Math.max(1, ...serie.map((x) => x.p));
+    i,
+    p: pG.filter((p) => { const d = new Date(p.created_at); return d.getFullYear() === anioSerie && d.getMonth() === i; }).length,
+    s: pG.filter((p) => { if (p.resultado !== "seleccionado" || !p.resultado_at) return false; const d = new Date(p.resultado_at); return d.getFullYear() === anioSerie && d.getMonth() === i; }).length,
+  })).filter((x) => x.i + 1 >= desdeM && x.i + 1 <= hastaM);
+  const verP = gVer !== "sel", verS = gVer !== "pos";
+  const maxSerie = Math.max(1, ...serie.map((x) => Math.max(verP ? x.p : 0, verS ? x.s : 0)));
+  const totP = serie.reduce((a, x) => a + x.p, 0), totS = serie.reduce((a, x) => a + x.s, 0);
+  const gFiltrado = !!(gAnio || gTipo || gOrg || gCar || gVer !== "ambas" || gDesde !== "1" || gHasta !== "12");
+  const limpiarG = () => { setGAnio(""); setGDesde("1"); setGHasta("12"); setGTipo(""); setGOrg(""); setGCar(""); setGVer("ambas"); };
   const bs = datos.busquedas.filter((b) => enPer(b.created_at)).map((b) => ({ b, s: estadoBusqueda(b, P) }));
   const shown = filtro ? bs.filter((x) => x.s.k === filtro) : bs;
   return (
@@ -69,12 +87,24 @@ export function Tablero({ c }: { c: Ctx }) {
           <div className="panel"><span className="eyebrow">KR2 · Búsquedas con resultado registrado</span><b>{kr2 == null ? "—" : kr2 + " %"}</b><small className="mut">Meta: 80 % de las búsquedas con envío</small></div>
           <div className="panel"><span className="eyebrow">KR3 · Días hábiles hasta el envío</span><b>{kr3 == null ? "—" : kr3.toFixed(1).replace(".", ",")}</b><small className="mut">Meta: 3 días hábiles o menos (promedio)</small></div>
         </div>
-        <div className="serie"><b className="mut" style={{ fontSize: ".85rem" }}>Postulaciones y seleccionados por mes · {anioSerie}</b>
-          {serie.map((x, i) => (
-            <div className={`fila${mes && +mes === i + 1 ? " on" : ""}`} key={i}><span>{MESES[i].slice(0, 3)}</span>
-              <div className="barras"><i style={{ width: (100 * x.p / maxSerie) + "%" }} /><i className="sel" style={{ width: (100 * x.s / maxSerie) + "%" }} /></div>
-              <span className="num">{x.p} · {x.s}</span></div>))}
-          <small className="mut">Barra verde: postulaciones · barra violeta: seleccionados.</small>
+        <div className="serie">
+          <div className="sec-head"><b className="mut" style={{ fontSize: ".9rem" }}>Postulaciones y seleccionados por mes · {anioSerie}</b>
+            {gFiltrado ? <button className="linkbtn" type="button" onClick={limpiarG}>Quitar filtros del gráfico</button> : null}</div>
+          <div className="filtros gfiltros">
+            <label>Año <select value={gAnio} onChange={(x) => setGAnio(x.target.value)}><option value="">{anio ? `Igual que arriba (${anio})` : `Último (${anioMax})`}</option>{anios.map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
+            <label>Desde <select value={gDesde} onChange={(x) => setGDesde(x.target.value)}>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
+            <label>Hasta <select value={gHasta} onChange={(x) => setGHasta(x.target.value)}>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
+            <label>Tipo <select value={gTipo} onChange={(x) => setGTipo(x.target.value)}><option value="">Todos</option><option value="pasantia">Pasantías</option><option value="empleo">Empleos</option></select></label>
+            <label>Organización <select value={gOrg} onChange={(x) => setGOrg(x.target.value)}><option value="">Todas</option>{datos.organizaciones.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}</select></label>
+            <label>Carrera <select value={gCar} onChange={(x) => setGCar(x.target.value)}><option value="">Todas</option>{carrerasG.map((k) => <option key={k} value={k}>{k}</option>)}</select></label>
+            <label>Mostrar <select value={gVer} onChange={(x) => setGVer(x.target.value)}><option value="ambas">Postulaciones y seleccionados</option><option value="pos">Solo postulaciones</option><option value="sel">Solo seleccionados</option></select></label>
+          </div>
+          {serie.map((x) => (
+            <div className={`fila${mes && +mes === x.i + 1 && anioSerie === +anio ? " on" : ""}`} key={x.i}><span>{MESES[x.i].slice(0, 3)}</span>
+              <div className="barras">{verP ? <i style={{ width: (100 * x.p / maxSerie) + "%" }} /> : null}{verS ? <i className="sel" style={{ width: (100 * x.s / maxSerie) + "%" }} /> : null}</div>
+              <span className="num">{[verP ? x.p : null, verS ? x.s : null].filter((v) => v != null).join(" · ")}</span></div>))}
+          <div className="fila tot"><span>Total</span><span className="mut">{verP ? <><span className="gley"><i /></span>{totP} postulaciones</> : null}{verP && verS ? " · " : null}{verS ? <><span className="gley sel"><i /></span>{totS} seleccionados</> : null}</span><span /></div>
+          <small className="mut">{verP ? "Barra verde: postulaciones (por fecha de postulación)" : ""}{verP && verS ? " · " : ""}{verS ? (verP ? "barra violeta" : "Barra violeta") + ": seleccionados (por fecha en que se registró la selección)" : ""}.</small>
         </div>
       </section>
       <section className="panel" style={{ display: "grid", gap: 12 }}><div className="sec-head"><h2>Seguimiento de búsquedas</h2><small className="mut">Empleos y pasantías publicados en el período: {etiquetaPer}</small></div>
