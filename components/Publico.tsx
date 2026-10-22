@@ -158,6 +158,11 @@ export function Ingreso({ c }: { c: Ctx }) {
           <Field id="l-pass" label="Contraseña"><input id="l-pass" type="password" autoComplete="current-password" value={pass} onChange={(e) => setPass(e.target.value)} /></Field>
           <div className="actions"><button className="btn" type="submit" disabled={enviando}>{enviando ? "Ingresando…" : "Ingresar"}</button></div>
         </form>
+        {r === "org" ? (
+          <div className="porque"><b>¿Por qué completar toda la búsqueda?</b>
+            <p>Hoy no alcanza con saber cuántas materias aprobó un estudiante. Para encontrar a la persona indicada cruzamos su <b>perfil completo</b>:</p>
+            <div className="tres"><span><i>📚</i>Avance académico<small>verificado con SIU Guaraní</small></span><span><i>🧩</i>Competencias<small>las que tu equipo necesita</small></span><span><i>🧭</i>Aptitud vocacional<small>según el test de BrOD</small></span></div>
+            <p className="mut">Cuanto más completa tu búsqueda, más precisa es la sugerencia de postulantes que recibe la Prosecretaría.</p></div>) : null}
         {r === "est" ? <p className="alt">¿Primera vez? <button className="linkbtn" type="button" onClick={() => c.ir("regEst")}>Crear mi usuario</button></p>
           : r === "org" ? <p className="alt">¿Tu organización no tiene cuenta? <button className="linkbtn" type="button" onClick={() => c.ir("regOrg")}>Registrar mi organización</button></p>
             : <p className="alt">Las cuentas de la Prosecretaría se crean internamente: no hay registro abierto.</p>}

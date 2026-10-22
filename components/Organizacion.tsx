@@ -117,7 +117,7 @@ export function NuevaBusqueda({ c }: { c: Ctx }) {
 
   return (
     <>
-      <section style={{ display: "grid", gap: 6 }}><span className="eyebrow">{o.nombre}</span><h1>Nueva búsqueda</h1><p className="lead">Pedimos los requisitos con los mismos datos que carga el estudiante (SIU Guaraní y test de BrOD): así la plataforma los cruza y calcula quién cumple y la afinidad.</p></section>
+      <section style={{ display: "grid", gap: 6 }}><span className="eyebrow">{o.nombre}</span><h1>Nueva búsqueda</h1><p className="lead">Hoy no alcanza con la cantidad de materias aprobadas: pedimos los requisitos con los mismos datos que carga el estudiante (avance en SIU Guaraní + competencias + aptitud vocacional de BrOD). Así la plataforma cruza los perfiles y la Prosecretaría te envía a quienes mejor encajan.</p></section>
       {err.general ? <Notice tipo="warn" role="alert"><span>{err.general}</span></Notice> : null}
       <form className="panel" id="busForm" onSubmit={publicar} noValidate>
         <h2>1 · El puesto</h2>

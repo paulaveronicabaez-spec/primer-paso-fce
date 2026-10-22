@@ -126,6 +126,15 @@ export async function registrarResultado(id: string, resultado: "seleccionado" |
   return check<Postulacion>(r);
 }
 
+/** HU8: pide a la IA hasta 5 postulantes sugeridos (datos anónimos). Devuelve null si la IA no está disponible. */
+export async function sugerirConIA(busqueda: Record<string, unknown>, candidatos: Record<string, unknown>[]) {
+  const { data } = await sb().auth.getSession();
+  const r = await fetch("/api/sugerir", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${data.session?.access_token ?? ""}` }, body: JSON.stringify({ busqueda, candidatos }) });
+  if (!r.ok) return null;
+  const j = (await r.json()) as { items?: { codigo: string; puntaje: number; motivo: string }[] };
+  return j.items && j.items.length ? j.items : null;
+}
+
 export async function verificarAvance(estId: string) {
   return actualizarEstudiante(estId, { avance_verificado: true });
 }

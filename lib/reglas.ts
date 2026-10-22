@@ -203,3 +203,18 @@ export function estadoBusqueda(b: Busqueda, ps: Postulacion[]) {
   const k = sel ? "seleccion" : sinRes ? "enviada" : pend ? "pendiente" : mias.length ? "sinsel" : "sinpost";
   return { k, ps: mias.length, pend, env: env.length, sel, sinRes };
 }
+
+/* ===== HU8 · Sugerencia de hasta 5 postulantes (respaldo por reglas cuando la IA no está disponible) ===== */
+export interface Sugerencia { pid: string; puntaje: number; motivo: string }
+export function rankingReglas(b: Busqueda, cands: Postulacion[], estudiantes: Estudiante[]): Sugerencia[] {
+  return cands.map((p) => {
+    const e = estudiantes.find((x) => x.id === p.estudiante_id);
+    const a = afinidad(e, b) || { pct: 0, comunes: [] as string[], area: false };
+    const score = Math.round(a.pct * 0.7 + (e?.avance_verificado ? 15 : 0) + Math.min(15, ((e?.avance ?? 0) - b.avance_minimo) / 2));
+    const r: string[] = [];
+    if (a.comunes.length) r.push(`tiene ${a.comunes.length} de ${b.competencias.length} competencias buscadas (${a.comunes.join(", ")})`);
+    if (a.area) r.push("su perfil coincide con el buscado");
+    r.push(e?.avance_verificado ? "avance verificado con SIU Guaraní" : "avance aún sin verificar");
+    return { pid: p.id, puntaje: Math.max(0, Math.min(100, score)), motivo: r.join("; ") + "." };
+  }).sort((x, y) => y.puntaje - x.puntaje).slice(0, 5);
+}

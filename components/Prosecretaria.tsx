@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Ctx } from "@/lib/ctx";
-import { ESTADOS_BUSQUEDA, MOTIVOS_DESCARTE, PROSEC_MAIL, estadoBusqueda, convenioVigente, cupoPasantes, edadDe, fmt, fmtHora, mensajeError, pNom, vacantesUsadas } from "@/lib/reglas";
+import { ESTADOS_BUSQUEDA, MOTIVOS_DESCARTE, PROSEC_MAIL, estadoBusqueda, rankingReglas, type Sugerencia, convenioVigente, cupoPasantes, edadDe, fmt, fmtHora, mensajeError, pNom, vacantesUsadas } from "@/lib/reglas";
 import * as api from "@/lib/api";
 import { Notice } from "./ui";
 import { ResultadoCell } from "./Organizacion";
@@ -114,6 +114,36 @@ export function Evaluar({ c }: { c: Ctx }) {
   const est = (id: string) => datos.estudiantes.find((e) => e.id === id);
   const org = (id: string) => datos.organizaciones.find((o) => o.id === id);
   const bs = datos.busquedas.filter((b) => datos.postulaciones.some((p) => p.busqueda_id === b.id));
+  const [sug, setSug] = useState<Record<string, { estado: "pensando" | "ok"; fuente?: "ia" | "reglas"; items?: Sugerencia[] }>>({});
+  const candidatos = (bid: string) => datos.postulaciones.filter((p) => p.busqueda_id === bid && p.cumple_requisitos && !p.enviada && !p.descartada);
+
+  /* HU8: la IA cruza la búsqueda con los candidatos (sin nombre, DNI ni correo) y sugiere hasta 5 */
+  async function sugerir(bid: string) {
+    const b = datos.busquedas.find((x) => x.id === bid)!;
+    const cs = candidatos(bid);
+    setSug((s) => ({ ...s, [bid]: { estado: "pensando" } }));
+    const codigos: Record<string, string> = {};
+    const anon = cs.map((p, i) => {
+      const e = est(p.estudiante_id); const cod = "P" + (i + 1); codigos[cod] = p.id;
+      return { codigo: cod, carrera: e?.carrera ?? null, avance: e?.avance ?? null, avance_verificado: !!e?.avance_verificado, perfil_test: pNom(e?.brod?.riasec1), perfil_relacionado: pNom(e?.brod?.riasec2), competencias: e?.brod?.competencias || [], perfil_segun_test: e?.brod?.titular || "", afinidad_reglas: datos.afinidades[p.id] ?? 0 };
+    });
+    let items: Sugerencia[] | null = null;
+    try {
+      const r = await api.sugerirConIA({ titulo: b.titulo, tipo: b.tipo, modalidad: b.modalidad, carrera: b.carrera, avance_minimo: b.avance_minimo, perfil_buscado: pNom(b.area_riasec), perfil_complementario: pNom(b.area2), competencias: b.competencias, tareas: b.descripcion }, anon);
+      if (r) items = r.filter((x) => codigos[x.codigo]).map((x) => ({ pid: codigos[x.codigo], puntaje: x.puntaje, motivo: x.motivo }));
+    } catch { items = null; }
+    setSug((s) => ({ ...s, [bid]: items && items.length ? { estado: "ok", fuente: "ia", items } : { estado: "ok", fuente: "reglas", items: rankingReglas(b, cs, datos.estudiantes) } }));
+  }
+
+  async function enviarSugeridos(bid: string) {
+    const ids = (sug[bid]?.items || []).map((x) => x.pid).filter((id) => candidatos(bid).some((p) => p.id === id));
+    setErr("");
+    try {
+      for (const id of ids) await api.enviarPostulacion(id);
+      const y = window.scrollY; await c.recargar(); window.scrollTo(0, y);
+      c.aviso(`${ids.length} postulación(es) enviadas a la organización`);
+    } catch (x) { setErr(mensajeError(x)); }
+  }
 
   async function accion(id: string, tipo: "enviar" | "descartar") {
     setErr("");
@@ -141,10 +171,23 @@ export function Evaluar({ c }: { c: Ctx }) {
           <section className="panel" style={{ display: "grid", gap: 10 }} key={b.id}>
             <div className="job-head"><div><div className="job-title">{b.titulo}</div><div className="job-org">{o.nombre} · {b.tipo === "pasantia" ? "Pasantía" : "Empleo"} · {b.vacantes} vacante(s) · perfil buscado: {pNom(b.area_riasec)}</div></div><span className="tag acc num">{env} enviadas</span></div>
             {b.tipo === "pasantia" ? <div className="chips">{convenioVigente(o) ? <span className="tag ok">Convenio vigente</span> : <span className="tag no">Sin convenio vigente</span>}<span className={`tag ${envPas >= cupo ? "warn" : "ok"} num`}>Pasantes enviados {envPas} · cupo según planta {cupo}</span></div> : null}
+            {(() => {
+              const cs = candidatos(b.id), s = sug[b.id];
+              if (!cs.length && !s) return null;
+              if (!s) return <div className="ia-box"><div><b>🤖 Sugerencia con IA</b><span className="mut">{cs.length} postulante(s) cumplen y esperan envío. La IA los cruza con lo que pide la organización y te sugiere hasta 5.</span></div><button className="btn" type="button" onClick={() => sugerir(b.id)}>Sugerir 5 postulantes</button></div>;
+              if (s.estado === "pensando") return <div className="ia-box"><div><b>🤖 Analizando postulantes…</b><span className="mut">Cruzando competencias, perfil vocacional y avance verificado.</span></div></div>;
+              const pend = (s.items || []).filter((x) => cs.some((p) => p.id === x.pid));
+              return (
+                <div className="ia-box res"><div className="sec-head"><b>🤖 {s.fuente === "ia" ? "Sugerencia de la IA" : "Sugerencia por reglas"} · {s.items?.length} postulante(s)</b>{s.fuente === "ia" ? <span className="tag ia">IA</span> : <span className="mut" style={{ fontSize: ".8rem" }}>La IA no está configurada en esta versión.</span>}</div>
+                  <ol className="sug">{(s.items || []).map((x, i) => { const p = datos.postulaciones.find((q) => q.id === x.pid); const e = p ? est(p.estudiante_id) : undefined; return (
+                    <li key={x.pid}><span className="rk num">{i + 1}</span><div><b>{e ? `${e.apellido}, ${e.nombre}` : "—"}</b> <span className="tag ia num">{x.puntaje}</span>{p?.enviada ? <> <span className="tag acc">Enviada</span></> : null}<div className="mut" style={{ fontSize: ".85rem" }}>{x.motivo}</div></div></li>); })}</ol>
+                  <div className="actions">{pend.length ? <button className="btn" type="button" onClick={() => enviarSugeridos(b.id)}>Enviar los {pend.length} sugeridos a la organización</button> : null}<button className="btn ghost" type="button" onClick={() => sugerir(b.id)}>Volver a sugerir</button><span className="mut" style={{ fontSize: ".8rem" }}>La IA sugiere; la Prosecretaría decide. Se envían datos sin nombre ni DNI.</span></div>
+                </div>);
+            })()}
             <div className="table-wrap"><table><thead><tr><th>Estudiante</th><th>Clasificación</th><th>Afinidad</th><th>Avance</th><th>Evaluación</th></tr></thead><tbody>
               {ps.map((p) => { const e = est(p.estudiante_id); const a = datos.afinidades[p.id]; return (
-                <tr key={p.id}>
-                  <td><strong>{e ? `${e.apellido}, ${e.nombre}` : "—"}</strong><div className="mut" style={{ fontSize: ".8rem" }}>{e?.carrera} · {edadDe(e?.fnac)} años</div>{e?.brod?.titular ? <div style={{ fontSize: ".82rem" }}>{e.brod.titular}</div> : null}</td>
+                <tr key={p.id} className={(sug[b.id]?.items || []).some((x) => x.pid === p.id) ? "sugrow" : undefined}>
+                  <td>{(() => { const k = (sug[b.id]?.items || []).findIndex((x) => x.pid === p.id); return k >= 0 ? <><span className="tag ia">⭐ Sugerido #{k + 1}</span> </> : null; })()}<strong>{e ? `${e.apellido}, ${e.nombre}` : "—"}</strong><div className="mut" style={{ fontSize: ".8rem" }}>{e?.carrera} · {edadDe(e?.fnac)} años</div>{e?.brod?.titular ? <div style={{ fontSize: ".82rem" }}>{e.brod.titular}</div> : null}</td>
                   <td>{p.cumple_requisitos ? <span className="tag ok">Cumple</span> : <><span className="tag no">No cumple</span><div className="mut" style={{ fontSize: ".8rem" }}>{p.motivos.join(" · ")}</div></>}</td>
                   <td className="num">{a != null ? a + "%" : "—"}</td>
                   <td>{e?.avance}% {e?.avance_verificado ? <span className="tag ok">Verificado</span> : <span className="tag warn">Sin verificar</span>}</td>

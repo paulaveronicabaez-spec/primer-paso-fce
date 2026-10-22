@@ -22,11 +22,15 @@ Todos los datos son ficticios.
   Se controlan en la pantalla y también en la base de datos.
 - **Prosecretaría:** tablero con el seguimiento de cada búsqueda (sin postulaciones → pendiente de envío → con envío → con estudiante seleccionado o sin selección); evaluación de postulaciones (enviar a la organización o no enviar, con motivo); correos de novedades (los genera la base con un trigger); verificación del avance contra SIU Guaraní; organizaciones con convenio y cupo.
 
+## Sugerencia de postulantes con IA (HU8)
+En «Evaluar postulaciones», la Prosecretaría pide hasta 5 postulantes sugeridos para cada búsqueda. A la IA se le envían datos anónimos (sin nombre, DNI ni correo). Para activarla, cargá en Vercel la variable `ANTHROPIC_API_KEY` (y, opcional, `ANTHROPIC_MODEL`). Sin esa variable, la aplicación sugiere por reglas: afinidad de competencias y perfil, más el avance verificado.
+
 ## Estructura
 - `app/`, `components/`, `lib/`: aplicación Next.js (App Router) + TypeScript + Tailwind.
 - `supabase/migrations/`: esquema, reglas, Row Level Security.
 - `supabase/seed.sql`: datos y cuentas de prueba.
-- `supabase/instalar-todo.sql`: lo mismo, en un solo archivo para pegar en el SQL Editor.
+- `supabase/datos-demo-ia.sql`: seis postulantes de prueba para la sugerencia.
+- `supabase/instalar-todo.sql`: todo junto, en un solo archivo para pegar en el SQL Editor.
 
 ## Puesta en marcha
 1. **Supabase.**
@@ -68,6 +72,5 @@ Probados de punta a punta contra la base con sus políticas:
   - si el estudiante cambia el avance, la verificación vuelve a quedar pendiente.
 
 **Pendiente (Sprint 3):**
-- HU8: afinidad con IA.
 - HU14: recuperar contraseña.
 - Envío real de correos (a confirmar con el docente).
