@@ -169,6 +169,7 @@ export function mensajeError(e: unknown): string {
   if (/pasantia_ley_26427/.test(msg)) return "La pasantía no cumple los controles de la Ley 26.427.";
   if (/User already registered/i.test(msg)) return "Ya hay una cuenta con ese correo.";
   if (/Invalid login credentials/i.test(msg)) return "Correo o contraseña incorrectos.";
+  if (/rate limit/i.test(msg)) return "Supabase frenó el alta porque intentó mandar un correo de confirmación. Hay que desactivar \"Confirm email\" en Supabase (Authentication → Sign In / Providers → Email) y volver a intentar.";
   if (/Email not confirmed/i.test(msg)) return "La cuenta no está confirmada. En Supabase hay que desactivar \"Confirm email\".";
   return msg;
 }
