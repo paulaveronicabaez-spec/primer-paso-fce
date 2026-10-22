@@ -328,3 +328,15 @@ tr.sugrow{background:var(--ia-soft)}
 @media (max-width:760px){.flujo{grid-template-columns:1fr}}
 .flujo div{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:10px;padding:10px;display:grid;gap:4px}
 .flujo b{font-size:.86rem}.flujo span{font-size:.8rem;color:var(--muted)}
+.metricas .sec-head{align-items:center}
+.filtros{display:flex;gap:10px;flex-wrap:wrap}
+.filtros label{display:flex;gap:6px;align-items:center;font-size:.85rem;font-weight:600}
+.filtros select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface);color:var(--fg)}
+.kpis.kr .panel{border-left:4px solid var(--accent)}
+.kpis small{font-size:.75rem}
+.serie{display:grid;gap:4px}
+.serie .fila{display:grid;grid-template-columns:36px 1fr 64px;gap:8px;align-items:center;font-size:.8rem;border-radius:6px;padding:1px 4px}
+.serie .fila.on{background:var(--accent-soft)}
+.barras{display:grid;gap:2px}
+.barras i{display:block;height:7px;border-radius:4px;background:var(--ok);min-width:0}
+.barras i.sel{background:var(--ia)}

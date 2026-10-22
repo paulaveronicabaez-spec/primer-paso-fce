@@ -6,6 +6,16 @@ import * as api from "@/lib/api";
 import { Notice } from "./ui";
 import { ResultadoCell } from "./Organizacion";
 
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+/** Días hábiles (lunes a viernes) entre dos fechas. */
+function diasHabiles(desde: string, hasta: string) {
+  const a = new Date(desde), b = new Date(hasta);
+  let n = 0; const d = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const fin = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  while (d < fin) { d.setDate(d.getDate() + 1); const w = d.getDay(); if (w !== 0 && w !== 6) n++; }
+  return n;
+}
+
 export function Tablero({ c }: { c: Ctx }) {
   const { datos } = c;
   const P = datos.postulaciones;
@@ -13,21 +23,61 @@ export function Tablero({ c }: { c: Ctx }) {
   const unread = datos.correos.filter((m) => m.para === PROSEC_MAIL && !m.leido).length;
   const pendVerif = datos.estudiantes.filter((e) => e.academico_actualizado && !e.avance_verificado).length;
   const org = (id: string) => datos.organizaciones.find((o) => o.id === id);
-  const bs = datos.busquedas.map((b) => ({ b, s: estadoBusqueda(b, P) }));
+  /* Métricas filtradas por año o por mes */
+  const [anio, setAnio] = useState("");
+  const [mes, setMes] = useState("");
+  const enPer = (d?: string | null) => { if (!d) return false; const x = new Date(d); return (!anio || x.getFullYear() === +anio) && (!mes || x.getMonth() + 1 === +mes); };
+  const anios = Array.from(new Set([...datos.busquedas.map((b) => b.created_at), ...P.map((p) => p.created_at)].map((d) => new Date(d).getFullYear()))).sort();
+  const etiquetaPer = !anio ? "todo el historial" : mes ? `${MESES[+mes - 1]} ${anio}` : `año ${anio}`;
+  const bPer = datos.busquedas.filter((b) => enPer(b.created_at));
+  const pPer = P.filter((p) => enPer(p.created_at));
+  const envPer = P.filter((p) => p.enviada && enPer(p.enviada_at));
+  const selPer = P.filter((p) => p.resultado === "seleccionado" && enPer(p.resultado_at));
+  const kr1 = pPer.length ? Math.round((100 * pPer.filter((p) => p.cumple_requisitos).length) / pPer.length) : null;
+  const bConEnv = bPer.filter((b) => P.some((p) => p.busqueda_id === b.id && p.enviada));
+  const kr2 = bConEnv.length ? Math.round((100 * bConEnv.filter((b) => P.some((p) => p.busqueda_id === b.id && p.enviada && p.resultado)).length) / bConEnv.length) : null;
+  const dias = envPer.map((p) => diasHabiles(p.created_at, p.enviada_at!));
+  const kr3 = dias.length ? dias.reduce((x, y) => x + y, 0) / dias.length : null;
+  const anioSerie = anio ? +anio : new Date().getFullYear();
+  const serie = MESES.map((_, i) => ({
+    p: P.filter((p) => { const d = new Date(p.created_at); return d.getFullYear() === anioSerie && d.getMonth() === i; }).length,
+    s: P.filter((p) => { if (p.resultado !== "seleccionado" || !p.resultado_at) return false; const d = new Date(p.resultado_at); return d.getFullYear() === anioSerie && d.getMonth() === i; }).length,
+  }));
+  const maxSerie = Math.max(1, ...serie.map((x) => x.p));
+  const bs = datos.busquedas.filter((b) => enPer(b.created_at)).map((b) => ({ b, s: estadoBusqueda(b, P) }));
   const shown = filtro ? bs.filter((x) => x.s.k === filtro) : bs;
   return (
     <>
       <section style={{ display: "grid", gap: 6 }}><span className="eyebrow">Prosecretaría de Inserción Laboral</span><h1>Tablero</h1><p className="lead">Seguí cada búsqueda desde que se publica hasta que la organización informa a quién eligió.</p></section>
       {unread ? <Notice tipo="new"><span><b>{unread === 1 ? "Tenés 1 correo nuevo" : `Tenés ${unread} correos nuevos`}.</b> <button className="linkbtn" type="button" onClick={() => c.ir("correos")}>Ver correos</button></span></Notice> : null}
       {pendVerif ? <Notice tipo="warn"><span><b>{pendVerif === 1 ? "1 estudiante" : `${pendVerif} estudiantes`}</b> con el avance pendiente de verificar con SIU Guaraní. <button className="linkbtn" type="button" onClick={() => c.ir("verif")}>Verificar</button></span></Notice> : null}
-      <div className="kpis">
-        <div className="panel"><span className="eyebrow">Búsquedas publicadas</span><b>{datos.busquedas.filter((b) => b.estado === "publicada").length}</b></div>
-        <div className="panel"><span className="eyebrow">Postulaciones</span><b>{P.length}</b></div>
-        <div className="panel"><span className="eyebrow">Cumplen requisitos</span><b>{P.filter((p) => p.cumple_requisitos).length}</b></div>
-        <div className="panel"><span className="eyebrow">Enviadas a organizaciones</span><b>{P.filter((p) => p.enviada).length}</b></div>
-        <div className="panel"><span className="eyebrow">Estudiantes seleccionados</span><b>{P.filter((p) => p.resultado === "seleccionado").length}</b></div>
-      </div>
-      <section className="panel" style={{ display: "grid", gap: 12 }}><div className="sec-head"><h2>Seguimiento de búsquedas</h2><small className="mut">Empleos y pasantías</small></div>
+      <section className="panel metricas" style={{ display: "grid", gap: 14 }}>
+        <div className="sec-head"><div><h2>Métricas</h2><small className="mut">Período: {etiquetaPer}</small></div>
+          <div className="filtros">
+            <label>Año <select value={anio} onChange={(x) => { setAnio(x.target.value); if (!x.target.value) setMes(""); }}><option value="">Todos</option>{anios.map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
+            <label>Mes <select value={mes} disabled={!anio} onChange={(x) => setMes(x.target.value)}><option value="">Todos</option>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
+          </div></div>
+        <div className="kpis">
+          <div className="panel"><span className="eyebrow">Búsquedas publicadas</span><b>{bPer.length}</b></div>
+          <div className="panel"><span className="eyebrow">Postulaciones</span><b>{pPer.length}</b></div>
+          <div className="panel"><span className="eyebrow">Cumplen requisitos</span><b>{pPer.filter((p) => p.cumple_requisitos).length}</b></div>
+          <div className="panel"><span className="eyebrow">Enviadas a organizaciones</span><b>{envPer.length}</b></div>
+          <div className="panel"><span className="eyebrow">Estudiantes seleccionados</span><b>{selPer.length}</b></div>
+        </div>
+        <div className="kpis kr">
+          <div className="panel"><span className="eyebrow">KR1 · Postulaciones que cumplen</span><b>{kr1 == null ? "—" : kr1 + " %"}</b><small className="mut">Meta: 70 % o más</small></div>
+          <div className="panel"><span className="eyebrow">KR2 · Búsquedas con resultado registrado</span><b>{kr2 == null ? "—" : kr2 + " %"}</b><small className="mut">Meta: 80 % de las búsquedas con envío</small></div>
+          <div className="panel"><span className="eyebrow">KR3 · Días hábiles hasta el envío</span><b>{kr3 == null ? "—" : kr3.toFixed(1).replace(".", ",")}</b><small className="mut">Meta: 3 días hábiles o menos (promedio)</small></div>
+        </div>
+        <div className="serie"><b className="mut" style={{ fontSize: ".85rem" }}>Postulaciones y seleccionados por mes · {anioSerie}</b>
+          {serie.map((x, i) => (
+            <div className={`fila${mes && +mes === i + 1 ? " on" : ""}`} key={i}><span>{MESES[i].slice(0, 3)}</span>
+              <div className="barras"><i style={{ width: (100 * x.p / maxSerie) + "%" }} /><i className="sel" style={{ width: (100 * x.s / maxSerie) + "%" }} /></div>
+              <span className="num">{x.p} · {x.s}</span></div>))}
+          <small className="mut">Barra verde: postulaciones · barra violeta: seleccionados.</small>
+        </div>
+      </section>
+      <section className="panel" style={{ display: "grid", gap: 12 }}><div className="sec-head"><h2>Seguimiento de búsquedas</h2><small className="mut">Empleos y pasantías publicados en el período: {etiquetaPer}</small></div>
         <div className="segchips">{([["", "Todas", bs.length]] as [string, string, number][]).concat(ESTADOS_BUSQUEDA.map(([k, l]) => [k, l, bs.filter((x) => x.s.k === k).length] as [string, string, number])).map(([k, l, n]) => (
           <button key={k || "todas"} type="button" className={`segc${filtro === k ? " on" : ""}`} onClick={() => setFiltro(k)}>{l} <span className="num">{n}</span></button>))}</div>
         <div className="table-wrap"><table><thead><tr><th>Búsqueda</th><th>Publicada</th><th>Recorrido</th><th>Estado</th><th></th></tr></thead><tbody>
