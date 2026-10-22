@@ -41,8 +41,8 @@ export function Tablero({ c }: { c: Ctx }) {
   /* Gráfico por mes con filtros propios */
   const anioMax = anios.length ? anios[anios.length - 1] : new Date().getFullYear();
   const [gAnio, setGAnio] = useState("");
-  const [gDesde, setGDesde] = useState("1");
-  const [gHasta, setGHasta] = useState("12");
+  const [gDesde, setGDesde] = useState("");
+  const [gHasta, setGHasta] = useState("");
   const [gTipo, setGTipo] = useState("");
   const [gOrg, setGOrg] = useState("");
   const [gCar, setGCar] = useState("");
@@ -51,17 +51,25 @@ export function Tablero({ c }: { c: Ctx }) {
   const busDe = (id: string) => datos.busquedas.find((b) => b.id === id);
   const pG = P.filter((p) => { const b = busDe(p.busqueda_id); if (!b) return false; return (!gTipo || b.tipo === gTipo) && (!gOrg || b.organizacion_id === gOrg) && (!gCar || b.carrera === gCar); });
   const carrerasG = Array.from(new Set(datos.busquedas.map((b) => b.carrera).filter(Boolean))).sort();
-  const desdeM = Math.min(+gDesde, +gHasta), hastaM = Math.max(+gDesde, +gHasta);
-  const serie = MESES.map((_, i) => ({
+  const rangoElegido = !!(gDesde || gHasta);
+  const d0 = +(gDesde || gHasta), h0 = +(gHasta || gDesde);
+  const desdeM = Math.min(d0, h0), hastaM = Math.max(d0, h0);
+  const mesArriba = !gAnio && anio && mes ? +mes : 0;
+  const serieTodo = MESES.map((_, i) => ({
     i,
     p: pG.filter((p) => { const d = new Date(p.created_at); return d.getFullYear() === anioSerie && d.getMonth() === i; }).length,
     s: pG.filter((p) => { if (p.resultado !== "seleccionado" || !p.resultado_at) return false; const d = new Date(p.resultado_at); return d.getFullYear() === anioSerie && d.getMonth() === i; }).length,
-  })).filter((x) => x.i + 1 >= desdeM && x.i + 1 <= hastaM);
+  }));
+  /* Sin rango elegido: el mes de arriba si hay uno; si no, solo los meses con movimiento */
+  const serie = rangoElegido ? serieTodo.filter((x) => x.i + 1 >= desdeM && x.i + 1 <= hastaM)
+    : mesArriba ? serieTodo.filter((x) => x.i + 1 === mesArriba)
+      : serieTodo.filter((x) => x.p > 0 || x.s > 0);
+  const queMeses = rangoElegido ? (desdeM === hastaM ? MESES[desdeM - 1] : `${MESES[desdeM - 1]} a ${MESES[hastaM - 1]}`) : mesArriba ? MESES[mesArriba - 1] : "meses con movimiento";
   const verP = gVer !== "sel", verS = gVer !== "pos";
   const maxSerie = Math.max(1, ...serie.map((x) => Math.max(verP ? x.p : 0, verS ? x.s : 0)));
   const totP = serie.reduce((a, x) => a + x.p, 0), totS = serie.reduce((a, x) => a + x.s, 0);
-  const gFiltrado = !!(gAnio || gTipo || gOrg || gCar || gVer !== "ambas" || gDesde !== "1" || gHasta !== "12");
-  const limpiarG = () => { setGAnio(""); setGDesde("1"); setGHasta("12"); setGTipo(""); setGOrg(""); setGCar(""); setGVer("ambas"); };
+  const gFiltrado = !!(gAnio || gTipo || gOrg || gCar || gVer !== "ambas" || gDesde || gHasta);
+  const limpiarG = () => { setGAnio(""); setGDesde(""); setGHasta(""); setGTipo(""); setGOrg(""); setGCar(""); setGVer("ambas"); };
   const bs = datos.busquedas.filter((b) => enPer(b.created_at)).map((b) => ({ b, s: estadoBusqueda(b, P) }));
   const shown = filtro ? bs.filter((x) => x.s.k === filtro) : bs;
   return (
@@ -87,25 +95,27 @@ export function Tablero({ c }: { c: Ctx }) {
           <div className="panel"><span className="eyebrow">KR2 · Búsquedas con resultado registrado</span><b>{kr2 == null ? "—" : kr2 + " %"}</b><small className="mut">Meta: 80 % de las búsquedas con envío</small></div>
           <div className="panel"><span className="eyebrow">KR3 · Días hábiles hasta el envío</span><b>{kr3 == null ? "—" : kr3.toFixed(1).replace(".", ",")}</b><small className="mut">Meta: 3 días hábiles o menos (promedio)</small></div>
         </div>
-        <div className="serie">
-          <div className="sec-head"><b className="mut" style={{ fontSize: ".9rem" }}>Postulaciones y seleccionados por mes · {anioSerie}</b>
+        <details className="serie">
+          <summary><b>Postulaciones y seleccionados por mes</b> <span className="mut">· {anioSerie} · {queMeses}</span></summary>
+          <div className="sec-head" style={{ marginTop: 8 }}><small className="mut">Elegí qué querés ver. Sin rango de meses se muestran solo los meses con postulaciones o selecciones.</small>
             {gFiltrado ? <button className="linkbtn" type="button" onClick={limpiarG}>Quitar filtros del gráfico</button> : null}</div>
           <div className="filtros gfiltros">
             <label>Año <select value={gAnio} onChange={(x) => setGAnio(x.target.value)}><option value="">{anio ? `Igual que arriba (${anio})` : `Último (${anioMax})`}</option>{anios.map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
-            <label>Desde <select value={gDesde} onChange={(x) => setGDesde(x.target.value)}>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
-            <label>Hasta <select value={gHasta} onChange={(x) => setGHasta(x.target.value)}>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
+            <label>Desde <select value={gDesde} onChange={(x) => setGDesde(x.target.value)}><option value="">—</option>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
+            <label>Hasta <select value={gHasta} onChange={(x) => setGHasta(x.target.value)}><option value="">—</option>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
             <label>Tipo <select value={gTipo} onChange={(x) => setGTipo(x.target.value)}><option value="">Todos</option><option value="pasantia">Pasantías</option><option value="empleo">Empleos</option></select></label>
             <label>Organización <select value={gOrg} onChange={(x) => setGOrg(x.target.value)}><option value="">Todas</option>{datos.organizaciones.map((o) => <option key={o.id} value={o.id}>{o.nombre}</option>)}</select></label>
             <label>Carrera <select value={gCar} onChange={(x) => setGCar(x.target.value)}><option value="">Todas</option>{carrerasG.map((k) => <option key={k} value={k}>{k}</option>)}</select></label>
-            <label>Mostrar <select value={gVer} onChange={(x) => setGVer(x.target.value)}><option value="ambas">Postulaciones y seleccionados</option><option value="pos">Solo postulaciones</option><option value="sel">Solo seleccionados</option></select></label>
+            <label>Mostrar <select value={gVer} onChange={(x) => setGVer(x.target.value)}><option value="ambas">Ambos</option><option value="pos">Solo postulaciones</option><option value="sel">Solo seleccionados</option></select></label>
           </div>
+          {!serie.length ? <p className="empty" style={{ margin: "6px 0" }}>No hay postulaciones ni selecciones con estos filtros.</p> : null}
           {serie.map((x) => (
             <div className={`fila${mes && +mes === x.i + 1 && anioSerie === +anio ? " on" : ""}`} key={x.i}><span>{MESES[x.i].slice(0, 3)}</span>
               <div className="barras">{verP ? <i style={{ width: (100 * x.p / maxSerie) + "%" }} /> : null}{verS ? <i className="sel" style={{ width: (100 * x.s / maxSerie) + "%" }} /> : null}</div>
               <span className="num">{[verP ? x.p : null, verS ? x.s : null].filter((v) => v != null).join(" · ")}</span></div>))}
           <div className="fila tot"><span>Total</span><span className="mut">{verP ? <><span className="gley"><i /></span>{totP} postulaciones</> : null}{verP && verS ? " · " : null}{verS ? <><span className="gley sel"><i /></span>{totS} seleccionados</> : null}</span><span /></div>
           <small className="mut">{verP ? "Barra verde: postulaciones (por fecha de postulación)" : ""}{verP && verS ? " · " : ""}{verS ? (verP ? "barra violeta" : "Barra violeta") + ": seleccionados (por fecha en que se registró la selección)" : ""}.</small>
-        </div>
+        </details>
       </section>
       <section className="panel" style={{ display: "grid", gap: 12 }}><div className="sec-head"><h2>Seguimiento de búsquedas</h2><small className="mut">Empleos y pasantías publicados en el período: {etiquetaPer}</small></div>
         <div className="segchips">{([["", "Todas", bs.length]] as [string, string, number][]).concat(ESTADOS_BUSQUEDA.map(([k, l]) => [k, l, bs.filter((x) => x.s.k === k).length] as [string, string, number])).map(([k, l, n]) => (
