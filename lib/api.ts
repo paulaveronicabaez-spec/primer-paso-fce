@@ -39,7 +39,7 @@ export async function cargar(rol: Rol | null): Promise<Datos> {
   d.postulaciones = check<Postulacion[]>(pos);
   const af = await c.rpc("afinidades");
   for (const x of check<{ postulacion_id: string; pct: number }[]>(af) || []) d.afinidades[x.postulacion_id] = x.pct;
-  if (rol === "pro") d.correos = check<Correo[]>(await c.from("correos").select("*").order("fecha", { ascending: false }));
+  if (rol === "pro" || rol === "org") d.correos = check<Correo[]>(await c.from("correos").select("*").order("fecha", { ascending: false }));
   return d;
 }
 
@@ -106,8 +106,8 @@ export async function postular(busquedaId: string) {
   return check<Postulacion>(r);
 }
 
-export async function marcarCorreosLeidos() {
-  await sb().from("correos").update({ leido: true }).eq("leido", false);
+export async function marcarCorreosLeidos(para: string) {
+  await sb().from("correos").update({ leido: true }).eq("leido", false).eq("para", para);
 }
 
 export async function enviarPostulacion(id: string) {

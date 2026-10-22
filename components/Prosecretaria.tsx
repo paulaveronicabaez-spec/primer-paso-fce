@@ -10,7 +10,7 @@ export function Tablero({ c }: { c: Ctx }) {
   const { datos } = c;
   const P = datos.postulaciones;
   const [filtro, setFiltro] = useState("");
-  const unread = datos.correos.filter((m) => !m.leido).length;
+  const unread = datos.correos.filter((m) => m.para === PROSEC_MAIL && !m.leido).length;
   const pendVerif = datos.estudiantes.filter((e) => e.academico_actualizado && !e.avance_verificado).length;
   const org = (id: string) => datos.organizaciones.find((o) => o.id === id);
   const bs = datos.busquedas.map((b) => ({ b, s: estadoBusqueda(b, P) }));
@@ -46,21 +46,28 @@ export function Tablero({ c }: { c: Ctx }) {
 
 /* ===== HU12 · Correos de novedades (los genera la base con un trigger) ===== */
 export function Correos({ c }: { c: Ctx }) {
-  const [nuevos] = useState(() => new Set(c.datos.correos.filter((m) => !m.leido).map((m) => m.id)));
+  const esOrg = c.sesion?.rol === "org";
+  const o = esOrg ? c.datos.organizaciones.find((x) => x.id === c.sesion?.ref) : undefined;
+  const para = esOrg ? o?.email ?? "" : PROSEC_MAIL;
+  const mios = c.datos.correos.filter((m) => m.para === para);
+  const [nuevos] = useState(() => new Set(mios.filter((m) => !m.leido).map((m) => m.id)));
   useEffect(() => {
-    if (nuevos.size) api.marcarCorreosLeidos().then(() => c.recargar()).catch(() => undefined);
+    if (nuevos.size) api.marcarCorreosLeidos(para).then(() => c.recargar()).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <>
-      <section style={{ display: "grid", gap: 6 }}><span className="eyebrow">Prosecretaría · {PROSEC_MAIL}</span><h1>Correos de novedades</h1></section>
-      <Notice><span><b>Bandeja simulada.</b> Los correos los genera la base de datos (un trigger) ante cada alta de organización y cada búsqueda publicada, y se muestran acá. El envío real por un servicio de correo queda a confirmar con el docente.</span></Notice>
-      <div className="list">{c.datos.correos.length ? c.datos.correos.map((m) => (
+      <section style={{ display: "grid", gap: 6 }}><span className="eyebrow">{esOrg ? o?.nombre : "Prosecretaría"} · {para}</span><h1>Correos de novedades</h1></section>
+      <Notice><span>{esOrg
+        ? <><b>Te avisamos por correo cada vez que la Prosecretaría te envía un postulante.</b> Desde ese momento ves su perfil completo en «Mis búsquedas y postulaciones». Cuando decidas, registrá el resultado: el estudiante y la Prosecretaría se enteran al instante.</>
+        : <><b>Bandeja de novedades.</b> La base de datos genera un correo ante cada alta de organización, búsqueda publicada y selección registrada. Las organizaciones reciben el suyo cuando les enviás postulantes.</>}
+        {" "}<span className="mut">En esta versión los correos se ven en la aplicación; el envío a la casilla real queda para el Sprint 3.</span></span></Notice>
+      <div className="list">{mios.length ? mios.map((m) => (
         <article key={m.id} className={`mail${nuevos.has(m.id) ? " unread" : ""}`}>
           <header><b>{nuevos.has(m.id) ? <><span className="tag new">Nuevo</span> </> : null}{m.asunto}</b><span className="num mut">{fmtHora(m.fecha)}</span></header>
           <small>De: Primer Paso FCE &lt;no-responder@primerpaso.fce.example&gt; · Para: {m.para}</small>
           <p>{m.cuerpo}</p>
-        </article>)) : <p className="empty">No hay correos.</p>}</div>
+        </article>)) : <p className="empty">Todavía no hay correos.</p>}</div>
     </>
   );
 }

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Ctx, Filtros, Vista } from "@/lib/ctx";
 import type { Datos, Rol, Sesion } from "@/lib/tipos";
 import { configurado } from "@/lib/supabase";
-import { altaCompleta, mensajeError } from "@/lib/reglas";
+import { PROSEC_MAIL, altaCompleta, mensajeError } from "@/lib/reglas";
 import * as api from "@/lib/api";
 import { Badge, Notice } from "./ui";
 import { Ingreso, Portada, RegistroEstudiante, RegistroOrganizacion } from "./Publico";
@@ -12,7 +12,7 @@ import { NuevaBusqueda, OrgBusquedas } from "./Organizacion";
 import { Correos, Evaluar, Organizaciones, Tablero, Verificar } from "./Prosecretaria";
 
 const VACIO: Datos = { organizaciones: [], busquedas: [], estudiantes: [], postulaciones: [], correos: [], afinidades: {}, stats: { busquedas: 0, pasantias: 0, organizaciones: 0, postulaciones: 0 } };
-const NECESITA: Partial<Record<Vista, Rol>> = { perfil: "est", busquedas: "est", detalle: "est", postulaciones: "est", org: "org", orgBus: "org", prosec: "pro", correos: "pro", evaluar: "pro", verif: "pro", orgs: "pro" };
+const NECESITA: Partial<Record<Vista, Rol>> = { perfil: "est", busquedas: "est", detalle: "est", postulaciones: "est", org: "org", orgBus: "org", prosec: "pro", evaluar: "pro", verif: "pro", orgs: "pro" };
 const INICIO: Record<Rol, Vista> = { est: "busquedas", org: "orgBus", pro: "prosec" };
 const NOV_KEY = "ppf-nov-desde";
 
@@ -90,6 +90,7 @@ export default function App() {
   let v: Vista = vista;
   const necesita = NECESITA[v];
   if (necesita && sesion?.rol !== necesita) v = "login";
+  if (v === "correos" && sesion?.rol !== "pro" && sesion?.rol !== "org") v = "login";
   const yo = sesion?.rol === "est" ? datos.estudiantes.find((e) => e.id === sesion.ref) : undefined;
   const enAlta = !!yo && !altaCompleta(yo);
   if (enAlta) v = "perfil";
@@ -103,8 +104,8 @@ export default function App() {
     const nov = desde && yo ? datos.busquedas.filter((b) => b.estado === "publicada" && new Date(b.created_at) > desde && !datos.postulaciones.some((p) => p.estudiante_id === yo.id && p.busqueda_id === b.id)).length : 0;
     tabs = [["busquedas", <>Postularme<Badge n={nov} /></>, ["detalle"]], ["postulaciones", "Mis postulaciones"], ["perfil", "Mi perfil"]];
   }
-  if (sesion?.rol === "org") tabs = [["orgBus", "Mis búsquedas y postulaciones"], ["org", "Nueva búsqueda"]];
-  if (sesion?.rol === "pro") tabs = [["prosec", "Tablero"], ["correos", <>Correos<Badge n={datos.correos.filter((m) => !m.leido).length} /></>], ["evaluar", <>Evaluar postulaciones<Badge n={datos.postulaciones.filter((p) => p.cumple_requisitos && !p.enviada && !p.descartada).length} /></>], ["verif", <>Verificar avance<Badge n={datos.estudiantes.filter((e) => e.academico_actualizado && !e.avance_verificado).length} /></>], ["orgs", "Organizaciones"]];
+  if (sesion?.rol === "org") { const om = datos.organizaciones.find((o) => o.id === sesion.ref)?.email; tabs = [["orgBus", "Mis búsquedas y postulaciones"], ["org", "Nueva búsqueda"], ["correos", <>Correos<Badge n={datos.correos.filter((m) => m.para === om && !m.leido).length} /></>]]; }
+  if (sesion?.rol === "pro") tabs = [["prosec", "Tablero"], ["correos", <>Correos<Badge n={datos.correos.filter((m) => m.para === PROSEC_MAIL && !m.leido).length} /></>], ["evaluar", <>Evaluar postulaciones<Badge n={datos.postulaciones.filter((p) => p.cumple_requisitos && !p.enviada && !p.descartada).length} /></>], ["verif", <>Verificar avance<Badge n={datos.estudiantes.filter((e) => e.academico_actualizado && !e.avance_verificado).length} /></>], ["orgs", "Organizaciones"]];
 
   const quien = sesion?.rol === "est" ? `Estudiante · ${yo?.nombre ?? ""}${enAlta ? " · completando el alta" : ""}` : sesion?.rol === "org" ? `Organización · ${datos.organizaciones.find((o) => o.id === sesion.ref)?.nombre ?? ""}` : sesion?.rol === "pro" ? "Prosecretaría" : "";
 

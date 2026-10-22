@@ -52,6 +52,13 @@ export function OrgBusquedas({ c }: { c: Ctx }) {
         <div className="chips"><span className="chip num">CUIT {o.cuit}</span><span className="chip">{o.rubro}</span>
           {convenioVigente(o) ? <span className="tag ok">Convenio de pasantías vigente hasta {fmt(o.convenio_vence)}</span> : <span className="tag warn">Sin convenio de pasantías vigente</span>}
           <span className="chip num">Cupo de pasantes {vacantesUsadas(o, c.datos.busquedas)} de {cupo(o.empleados)}</span></div></section>
+      <div className="flujo" aria-label="Cómo sigue tu búsqueda">
+        <div><b>1 · Publicás</b><span>Con los requisitos y el perfil que buscás.</span></div>
+        <div><b>2 · Se postulan</b><span>La plataforma clasifica a cada estudiante: cumple o no cumple.</span></div>
+        <div><b>3 · La Prosecretaría evalúa</b><span>Con ayuda de la IA, elige a quienes mejor encajan y te los envía.</span></div>
+        <div><b>4 · Te avisamos</b><span>📧 Recibís un correo y ves el perfil completo de cada enviado.</span></div>
+        <div><b>5 · Registrás el resultado</b><span>Seleccionado/a o no: el estudiante y la Prosecretaría se enteran.</span></div>
+      </div>
       {mine.length ? mine.map((b) => {
         const ps = c.datos.postulaciones.filter((p) => p.busqueda_id === b.id);
         const ok = ps.filter((p) => p.cumple_requisitos).length, env = ps.filter((p) => p.enviada).length;
